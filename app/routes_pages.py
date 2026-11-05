@@ -27,7 +27,37 @@ def _page_html(name: str, mtime: float) -> str:  # mtime in the key: a copied-in
     html = (config.PAGES_DIR / f"{name}.html").read_text(encoding="utf-8")
     if EMPTY_META not in html:
         raise RuntimeError(f"{name}.html has no empty minted-endpoint meta tag; copy the built file from dist/")
-    return html.replace(EMPTY_META, f'<meta name="minted-endpoint" content="{config.API_PATH}">', 1)
+    html = html.replace(EMPTY_META, f'<meta name="minted-endpoint" content="{config.API_PATH}">', 1)
+    return html.replace("</body>", SERVER_MENU + "</body>", 1) if "</body>" in html else html + SERVER_MENU
+
+
+# Server-only additions to the pages' left menu: links to the Downloads and Status pages.
+# Added while serving, so the built page files stay exactly as the plugin made them.
+SERVER_MENU = """<script>
+(function () {
+  var LINKS = [
+    { href: "/minted/downloads", title: "Excel downloads", icon: "M12 4v11M7 10l5 5 5-5M5 20h14" },
+    { href: "/minted/status", title: "Server status", icon: "M3 12h4l3-8 4 16 3-8h4" }
+  ];
+  function svg(d) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/></svg>'; }
+  function add() {
+    var side = document.querySelector(".mn-side");
+    if (!side || side.querySelector(".mn-server")) return !!side;
+    var box = document.createElement("div"); box.className = "mn-server";
+    box.innerHTML = '<div class="mn-grp">Server</div>' + LINKS.map(function (l) {
+      return '<a class="mn-a" href="' + l.href + '" title="' + l.title + '">' + svg(l.icon) + '<span class="mn-lab">' + l.title + "</span></a>";
+    }).join("");
+    side.insertBefore(box, side.querySelector(".mn-foot"));
+    return true;
+  }
+  function start() {
+    if (add()) return;
+    var tries = 0, t = setInterval(function () { if (add() || ++tries > 40) clearInterval(t); }, 50);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
+})();
+</script>
+"""
 
 
 @router.get("/", include_in_schema=False)

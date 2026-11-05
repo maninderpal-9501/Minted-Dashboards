@@ -60,7 +60,8 @@ a{color:var(--blu)}
 <div class="eyebrow">Minted · DoorDash greeting cards</div><h1>Server status</h1>
 <p class="lede">Warm-up of every Minted tool with the pages' exact inputs, and cross-checks between tools. Replaces the “warm the Minted caches” chore before a demo.</p>
 <div class="bar"><button class="btn pri" id="run">Run warm-up now</button><button class="btn" id="refresh">Recompute (after a data reload)</button>
-<a class="btn" href="/minted/control-tower.html" style="text-decoration:none">Open Control Tower</a></div>
+<a class="btn" href="/minted/control-tower.html" style="text-decoration:none">Open Control Tower</a>
+<a class="btn" href="/minted/downloads" style="text-decoration:none">Excel downloads</a></div>
 <div id="verdict" class="msg info">Loading…</div><div class="kpis" id="kpis"></div>
 <div class="card"><div class="card-h"><h2>Cross-checks</h2></div><div class="scroll"><table id="checks"></table></div></div>
 <div class="card"><div class="card-h"><h2>Tool calls</h2></div><div class="scroll"><table id="tools"></table></div></div>
