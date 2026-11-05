@@ -24,7 +24,11 @@ log = logging.getLogger("minted")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    log.info("MCP server: %s (auth: %s)", config.MCP_URL, config.MCP_AUTH_MODE)
+    log.info("MCP server: %s (auth: %s) · settings from: %s · sign-in: %s%s", config.MCP_URL, config.MCP_AUTH_MODE,
+             config.SETTINGS_SOURCE, "on" if config.DEMO_KEY else "off",
+             f" (MINTED_DEMO_KEY from {config.DEMO_KEY_SOURCE})" if config.DEMO_KEY else "")
+    if config.ON_AZURE and config.DOTENV_FOUND:
+        log.warning("A .env file was deployed with the code; it is ignored on Azure. Remove it (it may hold secrets).")
     sched = start_scheduler()
     warm = asyncio.create_task(run_warmup(reason="startup")) if config.WARMUP_ON_STARTUP else None
     yield
@@ -46,7 +50,10 @@ app.include_router(status_router)
 @app.get("/healthz", tags=["health"])
 def healthz():
     """Liveness: the web server is up (does not touch the MCP server). Used by Docker / Azure."""
-    return {"ok": True}
+    return {"ok": True, "sign_in_required": bool(config.DEMO_KEY), "sign_in_setting": config.SIGN_IN,
+            "demo_key_from": config.DEMO_KEY_SOURCE, "mcp_url": config.MCP_URL, "mcp_auth": config.MCP_AUTH_MODE,
+            "on_azure": config.ON_AZURE, "settings_from": config.SETTINGS_SOURCE,
+            "dotenv_file_deployed": config.DOTENV_FOUND}
 
 
 @app.get("/readyz", tags=["health"])
