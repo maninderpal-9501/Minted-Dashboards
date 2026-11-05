@@ -1,0 +1,612 @@
+<title>Minted Order Journey</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="minted-endpoint" content="">
+<meta name="minted-page" content="order-journey">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: one DoorDash PO, start to finish. Search on top, five stations across (order → ship → FedEx → delivered → billed), then the evidence behind each. */
+:root{
+  --bg:#f5f8fc; --card:#ffffff; --line:#e3e8f0; --line2:#eef2f7;
+  --ink:#16202e; --ink2:#3b4656; --mut:#5d6878;
+  --blu:#2f6fed; --blu-bg:#eaf1fe; --navy:#111827;
+  --grn:#127a57; --grn-bg:#e3f4ec; --amb:#a8580a; --amb-bg:#fdf2dc; --red:#c62828; --red-bg:#fdeaea;
+  --gry-bg:#eef1f5; --pur:#6a4bc4; --pur-bg:#efeafc;
+  --display:'Inter Tight','Inter',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --body:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:70;background:#fff}
+button,input{font:inherit;color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:60;background:#fff;border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:14px;padding-block:10px;flex-wrap:wrap}
+.logo{height:26px;display:block}
+.who{font-size:12.5px;color:var(--mut);padding-left:14px;border-left:1px solid var(--line);font-weight:500}
+.who b{color:var(--ink);font-weight:600}
+.sp{flex:1}
+.conn{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--mut);font-weight:500}
+.conn i{width:8px;height:8px;border-radius:50%;background:#b8c1cc;display:inline-block}
+.conn.ok i{background:var(--grn)} .conn.bad i{background:var(--red)}
+.btn{border:1px solid #d5dbe4;background:#fff;border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn:hover{border-color:#9aa6b5}
+.btn:focus-visible,.pick:focus-visible{outline:2px solid var(--blu);outline-offset:2px}
+.btn.pri{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.pri:hover{background:var(--blu);border-color:var(--blu)}
+.btn.sm{padding:4px 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.5;cursor:default}
+
+main{padding-block:22px 40px}
+.eyebrow{font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--blu);font-weight:700}
+h1{font:700 24px/1.2 var(--display);margin:4px 0 14px;letter-spacing:-.2px;text-wrap:balance}
+
+.search{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.search input{flex:1 1 220px;min-width:0;border:1px solid #d5dbe4;border-radius:9px;padding:9px 12px;font-family:var(--mono);font-size:14px;letter-spacing:.3px;text-transform:uppercase}
+.search input:focus{outline:none;border-color:#9db8f0;box-shadow:0 0 0 3px rgba(47,111,237,.14)}
+.picks{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:20px;font-size:12px;color:var(--mut)}
+.pick{border:1px solid #d5dbe4;background:#fff;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
+.pick:hover{border-color:var(--blu);color:var(--blu)}
+.pick .mono{font-weight:500;color:var(--mut)}
+.pick.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.pick.on .mono{color:#cfd6e2}
+
+.head{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.head h2{margin:0;font:700 26px/1.15 var(--display);font-family:var(--mono);letter-spacing:-.3px}
+.head .meta{font-size:13px;color:var(--ink2);margin-top:4px}
+.head .meta b{font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-grn{background:var(--grn-bg);color:var(--grn)} .p-amb{background:var(--amb-bg);color:var(--amb)}
+.p-red{background:var(--red-bg);color:var(--red)} .p-blu{background:var(--blu-bg);color:var(--blu)} .p-gry{background:var(--gry-bg);color:var(--mut)} .p-pur{background:var(--pur-bg);color:var(--pur)}
+
+/* the journey */
+.journey{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 20px 18px;margin-bottom:16px}
+.stations{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;position:relative}
+.stn{position:relative;padding:0 12px 0 0;min-width:0}
+.stn .rail{height:4px;background:var(--line);margin:13px 0 0 0;position:absolute;left:30px;right:-4px;top:0}
+.stn:last-child .rail{display:none}
+.stn .dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:800;position:relative;z-index:1;background:#fff;border:3px solid var(--line);color:var(--mut)}
+.stn.done .dot{border-color:var(--grn);background:var(--grn);color:#fff}
+.stn.done .rail{background:var(--grn)}
+.stn.warn .dot{border-color:var(--amb);background:var(--amb-bg);color:var(--amb)}
+.stn.bad .dot{border-color:var(--red);background:var(--red);color:#fff}
+.stn.skip .dot{border-style:dashed}
+.stn.hand .dot{border-color:var(--pur);background:var(--pur);color:#fff}
+.stn.hand .rail{background:repeating-linear-gradient(90deg,var(--pur) 0 8px,transparent 8px 14px)}
+.stn .lab{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--mut);margin-top:10px}
+.stn .when{font:600 16px/1.25 var(--display);font-variant-numeric:tabular-nums;margin-top:2px}
+.stn .when small{display:block;font:500 12px var(--body);color:var(--mut)}
+.stn .what{font-size:12.5px;color:var(--ink2);margin-top:4px;line-height:1.45;overflow-wrap:anywhere}
+.stn .src{font-size:11px;color:var(--mut);margin-top:6px}
+@media(max-width:820px){
+  .stations{grid-template-columns:minmax(0,1fr);gap:16px}
+  .stn{padding:0 0 0 44px;min-height:40px}
+  .stn .dot{position:absolute;left:0;top:0}
+  .stn .rail{left:13px;right:auto;top:30px;bottom:-16px;width:4px;height:auto;margin:0}
+  .stn .lab{margin-top:4px}
+  .stn.hand .rail{background:repeating-linear-gradient(180deg,var(--pur) 0 8px,transparent 8px 14px)}
+}
+.events{display:flex;flex-direction:column;gap:8px;margin-top:18px;padding-top:14px;border-top:1px dashed var(--line)}
+.ev{display:flex;gap:12px;font-size:12.5px;align-items:baseline;flex-wrap:wrap}
+.ev b{min-width:150px;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.ev span:last-child{flex:1 1 320px;min-width:0}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-width:0}
+.kpi .k{font-size:12px;font-weight:600;color:var(--ink2)}
+.kpi .v{font:700 22px/1.2 var(--display);font-variant-numeric:tabular-nums}
+.kpi .d{font-size:11.5px;color:var(--mut)}
+.kpi.good .v{color:var(--grn)} .kpi.bad .v{color:var(--red)} .kpi.warn .v{color:var(--amb)}
+
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media(max-width:900px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;min-width:0}
+.card-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.card-h h3{font:600 15px/1.3 var(--display);margin:0}
+.card-h .sub{font-size:12px;color:var(--mut)}
+.card-b{padding:14px 16px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11.5px;font-weight:600;color:var(--ink2);padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;background:#fbfcfe}
+td{padding:8px 10px;border-bottom:1px solid var(--line2);font-size:13px;white-space:nowrap;vertical-align:middle}
+th:first-child,td:first-child{padding-left:16px} th:last-child,td:last-child{padding-right:16px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:12px}
+.mut{color:var(--mut)} .sm{font-size:11.5px}
+.cmp td.lbl{color:var(--ink2);font-weight:500}
+.cmp td.ok{color:var(--grn);font-weight:600} .cmp td.no{color:var(--red);font-weight:600}
+.srcs{display:flex;flex-wrap:wrap;gap:6px}
+.srcs span{font-size:11.5px;background:var(--blu-bg);color:#1c3d7a;border:1px solid #cddcfa;border-radius:7px;padding:2px 9px;font-weight:600}
+.msg{border-radius:10px;padding:11px 14px;font-size:13px;line-height:1.5}
+.msg.err{background:var(--red-bg);color:#7d1d1d;border:1px solid #f3c1c1}
+.msg.info{background:var(--blu-bg);color:#1c3d7a;border:1px solid #cddcfa}
+.msg.note{background:var(--amb-bg);color:#6b3f06;border:1px solid #f0dca8}
+.msg+.msg{margin-top:8px}
+.reply{background:#fbfcfe;border:1px dashed #c8d2e0;border-radius:9px;padding:10px 12px;font-size:12.5px;line-height:1.55;color:var(--ink2);white-space:pre-line}
+.loading{padding:30px 0;color:var(--mut)}
+.toast{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:max(20px,env(safe-area-inset-bottom,0px));background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:200;max-width:380px}
+.toast[hidden]{display:none}
+.foot{font-size:11.5px;color:var(--mut);padding:8px 0 0;line-height:1.6}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <img class="logo" alt="Ekyam" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjM2IiB2aWV3Qm94PSIwIDAgMTI4IDM2IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBjbGlwLXBhdGg9InVybCgjY2xpcDBfMTU0MDhfMTE4NTkpIj4KPHBhdGggZD0iTTE1LjIxMTcgMzIuMjEyM0MxNS4zNDYzIDMyLjE1ODIgMTUuNDkzMSAzMi4yNTcxIDE1LjQ5MzEgMzIuNDAyVjM1LjYzN0MxNS40OTMxIDM1Ljc4MiAxNS4zNDYzIDM1Ljg4MTIgMTUuMjExNyAzNS44MjcxTDExLjE4MzIgMzQuMjA5NEMxMS4wMTE5IDM0LjE0MDUgMTEuMDExOSAzMy44OTgzIDExLjE4MzIgMzMuODI5NkwxNS4yMTE3IDMyLjIxMjNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxOTM2IDMwLjAxMjFDMTAuMDUzNyAyOS45NjAxIDEwLjE5ODIgMzAuMDU5IDEwLjE5ODMgMzAuMjAyOFYzMy4zMDg4QzEwLjE5ODIgMzMuNDUyNiAxMC4wNTM3IDMzLjU1MTUgOS45MTkzNiAzMy40OTk1TDUuOTA4MTggMzEuOTQ2NUM1LjczMzczIDMxLjg3OTEgNS43MzM3MyAzMS42MzI1IDUuOTA4MTggMzEuNTY1MUw5LjkxOTM2IDMwLjAxMjFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xMC43MTA5IDMwLjIwMjhDMTAuNzExIDMwLjA1OSAxMC44NTU2IDI5Ljk2MDEgMTAuOTg5OSAzMC4wMTIxTDE1LjAwMTEgMzEuNTY1MUMxNS4xNzU1IDMxLjYzMjUgMTUuMTc1NSAzMS44NzkxIDE1LjAwMTEgMzEuOTQ2NUwxMC45ODk5IDMzLjQ5OTVDMTAuODU1NSAzMy41NTE1IDEwLjcxMSAzMy40NTI2IDEwLjcxMDkgMzMuMzA4OFYzMC4yMDI4WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjAuNTA5MiAzMC4wMTE5QzIwLjY0MzUgMjkuOTYgMjAuNzg4MSAzMC4wNTg5IDIwLjc4ODEgMzAuMjAyN1YzMy4zMDg3QzIwLjc4ODEgMzMuNDUyNCAyMC42NDM1IDMzLjU1MTQgMjAuNTA5MiAzMy40OTk0TDE2LjQ5OCAzMS45NDY0QzE2LjMyMzYgMzEuODc4OSAxNi4zMjM2IDMxLjYzMjQgMTYuNDk4IDMxLjU2NUwyMC41MDkyIDMwLjAxMTlaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yMS4zMDA4IDMwLjIwMjdDMjEuMzAwOCAzMC4wNTg5IDIxLjQ0NTQgMjkuOTYgMjEuNTc5NyAzMC4wMTE5TDI1LjU5MDkgMzEuNTY1QzI1Ljc2NTQgMzEuNjMyNCAyNS43NjU0IDMxLjg3ODkgMjUuNTkwOSAzMS45NDY0TDIxLjU3OTcgMzMuNDk5NEMyMS40NDU0IDMzLjU1MTQgMjEuMzAwOCAzMy40NTI0IDIxLjMwMDggMzMuMzA4N1YzMC4yMDI3WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNNC42MTk4NiAyNy42ODQ4QzQuNzU0NTIgMjcuNjMwOSA0LjkwMTI3IDI3LjcyOTkgNC45MDEzNCAyNy44NzQ2VjMxLjEwOThDNC45MDEzNCAzMS4yNTQ4IDQuNzU0NTQgMzEuMzUzNyA0LjYxOTg2IDMxLjI5OThMMC41OTEzOTYgMjkuNjgyQzAuNDIwMDU1IDI5LjYxMzMgMC40MjAwNTUgMjkuMzcxMSAwLjU5MTM5NiAyOS4zMDI0TDQuNjE5ODYgMjcuNjg0OFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTUuNDE0MDYgMjcuODc0NkM1LjQxNDEzIDI3LjcyOTkgNS41NjA4NiAyNy42MzA5IDUuNjk1NTQgMjcuNjg0OEw5LjcyMzk5IDI5LjMwMjRDOS44OTUzMyAyOS4zNzExIDkuODk1MzMgMjkuNjEzMyA5LjcyMzk5IDI5LjY4Mkw1LjY5NTU0IDMxLjI5OThDNS41NjA4MyAzMS4zNTM3IDUuNDE0MDYgMzEuMjU0OCA1LjQxNDA2IDMxLjEwOThWMjcuODc0NloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE1LjIxMTcgMjcuNjg0OEMxNS4zNDYzIDI3LjYzMDkgMTUuNDkzMSAyNy43Mjk5IDE1LjQ5MzEgMjcuODc0NlYzMS4xMDk4QzE1LjQ5MzEgMzEuMjU0OCAxNS4zNDYzIDMxLjM1MzcgMTUuMjExNyAzMS4yOTk4TDExLjE4MzIgMjkuNjgyQzExLjAxMTkgMjkuNjEzMyAxMS4wMTE5IDI5LjM3MTEgMTEuMTgzMiAyOS4zMDI0TDE1LjIxMTcgMjcuNjg0OFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE2LjAwMzkgMjcuODc0NkMxNi4wMDQgMjcuNzI5OSAxNi4xNTA3IDI3LjYzMDkgMTYuMjg1NCAyNy42ODQ4TDIwLjMxMzggMjkuMzAyNEMyMC40ODUyIDI5LjM3MTEgMjAuNDg1MiAyOS42MTMzIDIwLjMxMzggMjkuNjgyTDE2LjI4NTQgMzEuMjk5OEMxNi4xNTA3IDMxLjM1MzcgMTYuMDAzOSAzMS4yNTQ4IDE2LjAwMzkgMzEuMTA5OFYyNy44NzQ2WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjUuODAxNSAyNy42ODQ4QzI1LjkzNjIgMjcuNjMwOSAyNi4wODI4IDI3LjcyOTkgMjYuMDgzMSAyNy44NzQ2VjMxLjEwOThDMjYuMDgzMSAzMS4yNTQ4IDI1LjkzNjIgMzEuMzUzNyAyNS44MDE1IDMxLjI5OThMMjEuNzczIDI5LjY4MkMyMS42MDE3IDI5LjYxMzMgMjEuNjAxNyAyOS4zNzExIDIxLjc3MyAyOS4zMDI0TDI1LjgwMTUgMjcuNjg0OFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTI2LjU5NzcgMjcuODc0NkMyNi41OTc3IDI3LjcyOTkgMjYuNzQ0NSAyNy42MzA5IDI2Ljg3OTIgMjcuNjg0OEwzMC45MDc2IDI5LjMwMjRDMzEuMDc4OCAyOS4zNzExIDMxLjA3ODggMjkuNjEzMyAzMC45MDc2IDI5LjY4MkwyNi44NzkyIDMxLjI5OThDMjYuNzQ0NSAzMS4zNTM3IDI2LjU5NzcgMzEuMjU0OCAyNi41OTc3IDMxLjEwOThWMjcuODc0NloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTAuMTE5MTQxIDI1LjU0MzJDMC4xMTkyMTIgMjUuMzk4MiAwLjI2NTk1MSAyNS4yOTkzIDAuNDAwNjI0IDI1LjM1MzRMNC40MjkwOSAyNi45NzA4QzQuNjAwNDEgMjcuMDM5NyA0LjYwMDQxIDI3LjI4MTkgNC40MjkwOSAyNy4zNTA2TDAuNDAwNjI0IDI4Ljk2ODJDMC4yNjU5MTggMjkuMDIyMyAwLjExOTE0MSAyOC45MjMxIDAuMTE5MTQxIDI4Ljc3ODJWMjUuNTQzMloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTkuOTE2NzIgMjUuMzUzM0MxMC4wNTE0IDI1LjI5OTEgMTAuMTk4MSAyNS4zOTgxIDEwLjE5ODIgMjUuNTQzVjI4Ljc3OEMxMC4xOTgyIDI4LjkyMyAxMC4wNTE0IDI5LjAyMjIgOS45MTY3MiAyOC45NjhMNS44ODgyNiAyNy4zNTA0QzUuNzE2OTQgMjcuMjgxOCA1LjcxNjk0IDI3LjAzOTUgNS44ODgyNiAyNi45NzA2TDkuOTE2NzIgMjUuMzUzM1oiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTEwLjcxMDkgMjUuNTQzMkMxMC43MTEgMjUuMzk4MiAxMC44NTc4IDI1LjI5OTMgMTAuOTkyNCAyNS4zNTM0TDE1LjAyMDkgMjYuOTcwOEMxNS4xOTIyIDI3LjAzOTcgMTUuMTkyMiAyNy4yODE5IDE1LjAyMDkgMjcuMzUwNkwxMC45OTI0IDI4Ljk2ODJDMTAuODU3NyAyOS4wMjIzIDEwLjcxMDkgMjguOTIzMSAxMC43MTA5IDI4Ljc3ODJWMjUuNTQzMloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTIwLjUwNjYgMjUuMzUzM0MyMC42NDEyIDI1LjI5OTEgMjAuNzg4IDI1LjM5ODEgMjAuNzg4MSAyNS41NDNWMjguNzc4QzIwLjc4ODEgMjguOTIzIDIwLjY0MTMgMjkuMDIyMiAyMC41MDY2IDI4Ljk2OEwxNi40NzgxIDI3LjM1MDRDMTYuMzA2OCAyNy4yODE4IDE2LjMwNjggMjcuMDM5NSAxNi40NzgxIDI2Ljk3MDZMMjAuNTA2NiAyNS4zNTMzWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjEuMzAwOCAyNS41NDNDMjEuMzAwOSAyNS4zOTgxIDIxLjQ0NzYgMjUuMjk5MSAyMS41ODIzIDI1LjM1MzNMMjUuNjEwNyAyNi45NzA2QzI1Ljc4MjEgMjcuMDM5NSAyNS43ODIxIDI3LjI4MTggMjUuNjEwNyAyNy4zNTA0TDIxLjU4MjMgMjguOTY4QzIxLjQ0NzYgMjkuMDIyMiAyMS4zMDA4IDI4LjkyMyAyMS4zMDA4IDI4Ljc3OFYyNS41NDNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0zMS4wOTg0IDI1LjM1MzRDMzEuMjMzMSAyNS4yOTkzIDMxLjM3OTcgMjUuMzk4MiAzMS4zNzk3IDI1LjU0MzJWMjguNzc4MkMzMS4zNzk3IDI4LjkyMzEgMzEuMjMzMSAyOS4wMjIzIDMxLjA5ODQgMjguOTY4MkwyNy4wNyAyNy4zNTA2QzI2Ljg5ODUgMjcuMjgxOSAyNi44OTg1IDI3LjAzOTcgMjcuMDcgMjYuOTcwOEwzMS4wOTg0IDI1LjM1MzRaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik00LjYyMjQ5IDIzLjE1NDJDNC43NTY3OSAyMy4xMDIyIDQuOTAxMzQgMjMuMjAxMSA0LjkwMTQxIDIzLjM0NDhWMjYuNDUxQzQuOTAxMzYgMjYuNTk0OCA0Ljc1Njc5IDI2LjY5MzUgNC42MjI0OSAyNi42NDE1TDAuNjExMjkgMjUuMDg4N0MwLjQzNjg2NCAyNS4wMjEgMC40MzY4NTkgMjQuNzc0OCAwLjYxMTI5IDI0LjcwN0w0LjYyMjQ5IDIzLjE1NDJaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik01LjQxNDA2IDIzLjM0NUM1LjQxNDExIDIzLjIwMTIgNS41NTg2NiAyMy4xMDIzIDUuNjkyOTYgMjMuMTU0M0w5LjcwNDE2IDI0LjcwNzJDOS44Nzg1OSAyNC43NzQ5IDkuODc4NTkgMjUuMDIxMiA5LjcwNDE2IDI1LjA4ODlMNS42OTI5NiAyNi42NDE2QzUuNTU4NjYgMjYuNjkzNiA1LjQxNDExIDI2LjU5NDkgNS40MTQwNiAyNi40NTExVjIzLjM0NVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE2LjAwMzkgMjMuMzQ0OEMxNi4wMDQgMjMuMjAxMSAxNi4xNDg1IDIzLjEwMjIgMTYuMjgyOCAyMy4xNTQyTDIwLjI5NCAyNC43MDdDMjAuNDY4NCAyNC43NzQ4IDIwLjQ2ODQgMjUuMDIxIDIwLjI5NCAyNS4wODg3TDE2LjI4MjggMjYuNjQxNUMxNi4xNDg1IDI2LjY5MzUgMTYuMDAzOSAyNi41OTQ4IDE2LjAwMzkgMjYuNDUxVjIzLjM0NDhaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNS44MDQyIDIzLjE1NDNDMjUuOTM4NCAyMy4xMDIzIDI2LjA4MjkgMjMuMjAxMiAyNi4wODMxIDIzLjM0NVYyNi40NTExQzI2LjA4MjkgMjYuNTk0OSAyNS45Mzg0IDI2LjY5MzYgMjUuODA0MiAyNi42NDE2TDIxLjc5MjkgMjUuMDg4OUMyMS42MTg1IDI1LjAyMTIgMjEuNjE4NSAyNC43NzQ5IDIxLjc5MjkgMjQuNzA3MkwyNS44MDQyIDIzLjE1NDNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDIzLjM0NTFDMjYuNTk3NyAyMy4yMDEzIDI2Ljc0MjQgMjMuMTAyNSAyNi44NzY2IDIzLjE1NDRMMzAuODg3OCAyNC43MDczQzMxLjA2MjEgMjQuNzc1IDMxLjA2MjEgMjUuMDIxMyAzMC44ODc4IDI1LjA4OUwyNi44NzY2IDI2LjY0MThDMjYuNzQyNCAyNi42OTM3IDI2LjU5NzcgMjYuNTk1IDI2LjU5NzcgMjYuNDUxM1YyMy4zNDUxWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMC4xMTkxNDEgMjEuMDE2N0MwLjExOTIxMiAyMC44NzE4IDAuMjY1OTUxIDIwLjc3MjkgMC40MDA2MjQgMjAuODI3TDQuNDI5MDkgMjIuNDQ0NEM0LjYwMDQxIDIyLjUxMzIgNC42MDA0MSAyMi43NTU0IDQuNDI5MDkgMjIuODI0MUwwLjQwMDYyNCAyNC40NDE4QzAuMjY1OTE4IDI0LjQ5NTkgMC4xMTkxNDEgMjQuMzk2OCAwLjExOTE0MSAyNC4yNTE4VjIxLjAxNjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDIwLjgyNzFDMTAuMDUxNCAyMC43NzMgMTAuMTk4MSAyMC44NzIgMTAuMTk4MiAyMS4wMTY5VjI0LjI1MTlDMTAuMTk4MiAyNC4zOTY5IDEwLjA1MTQgMjQuNDk2MSA5LjkxNjcyIDI0LjQ0MTlMNS44ODgyNiAyMi44MjQzQzUuNzE2OTQgMjIuNzU1NSA1LjcxNjk0IDIyLjUxMzMgNS44ODgyNiAyMi40NDQ1TDkuOTE2NzIgMjAuODI3MVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTIwLjUwNjYgMjAuODI3MUMyMC42NDEyIDIwLjc3MyAyMC43ODggMjAuODcyIDIwLjc4ODEgMjEuMDE2OVYyNC4yNTE5QzIwLjc4ODEgMjQuMzk2OSAyMC42NDEzIDI0LjQ5NjEgMjAuNTA2NiAyNC40NDE5TDE2LjQ3ODEgMjIuODI0M0MxNi4zMDY4IDIyLjc1NTUgMTYuMzA2OCAyMi41MTMzIDE2LjQ3ODEgMjIuNDQ0NUwyMC41MDY2IDIwLjgyNzFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yMS4zMDA4IDIxLjAxNjlDMjEuMzAwOSAyMC44NzIgMjEuNDQ3NiAyMC43NzMgMjEuNTgyMyAyMC44MjcxTDI1LjYxMDcgMjIuNDQ0NUMyNS43ODIxIDIyLjUxMzMgMjUuNzgyMSAyMi43NTU1IDI1LjYxMDcgMjIuODI0M0wyMS41ODIzIDI0LjQ0MTlDMjEuNDQ3NiAyNC40OTYxIDIxLjMwMDggMjQuMzk2OSAyMS4zMDA4IDI0LjI1MTlWMjEuMDE2OVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTMxLjA5ODQgMjAuODI3QzMxLjIzMzEgMjAuNzcyOSAzMS4zNzk3IDIwLjg3MTggMzEuMzc5NyAyMS4wMTY3VjI0LjI1MThDMzEuMzc5NyAyNC4zOTY4IDMxLjIzMzEgMjQuNDk1OSAzMS4wOTg0IDI0LjQ0MThMMjcuMDcgMjIuODI0MUMyNi44OTg1IDIyLjc1NTQgMjYuODk4NSAyMi41MTMyIDI3LjA3IDIyLjQ0NDRMMzEuMDk4NCAyMC44MjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik00LjYxOTg2IDE4LjQ5NTVDNC43NTQ1MiAxOC40NDE0IDQuOTAxMjcgMTguNTQwMyA0LjkwMTM0IDE4LjY4NTJWMjEuOTIwM0M0LjkwMTM0IDIyLjA2NTIgNC43NTQ1NCAyMi4xNjQ0IDQuNjE5ODYgMjIuMTEwM0wwLjU5MTM5NiAyMC40OTI2QzAuNDIwMDU1IDIwLjQyMzggMC40MjAwNTUgMjAuMTgxNyAwLjU5MTM5NiAyMC4xMTI5TDQuNjE5ODYgMTguNDk1NVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTI1LjgwMTUgMTguNDk1NkMyNS45MzYyIDE4LjQ0MTUgMjYuMDgyOCAxOC41NDA0IDI2LjA4MzEgMTguNjg1M1YyMS45MjA0QzI2LjA4MzEgMjIuMDY1MyAyNS45MzYyIDIyLjE2NDUgMjUuODAxNSAyMi4xMTA0TDIxLjc3MyAyMC40OTI3QzIxLjYwMTcgMjAuNDIzOSAyMS42MDE3IDIwLjE4MTggMjEuNzczIDIwLjExM0wyNS44MDE1IDE4LjQ5NTZaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDE4LjY4NTRDMjYuNTk3NyAxOC41NDA1IDI2Ljc0NDUgMTguNDQxNiAyNi44NzkyIDE4LjQ5NTdMMzAuOTA3NiAyMC4xMTMxQzMxLjA3ODggMjAuMTgxOSAzMS4wNzg4IDIwLjQyNDEgMzAuOTA3NiAyMC40OTI4TDI2Ljg3OTIgMjIuMTEwNUMyNi43NDQ1IDIyLjE2NDYgMjYuNTk3NyAyMi4wNjU1IDI2LjU5NzcgMjEuOTIwNVYxOC42ODU0WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMC4xMTkxNDEgMTYuNDg1NUMwLjExOTE5OCAxNi4zNDE3IDAuMjYzNzUyIDE2LjI0MjggMC4zOTgwNTkgMTYuMjk0OEw0LjQwOTI0IDE3Ljg0NzdDNC41ODM2OSAxNy45MTUzIDQuNTgzNjkgMTguMTYxNyA0LjQwOTI0IDE4LjIyOTNMMC4zOTgwNTkgMTkuNzgyMkMwLjI2Mzc0NSAxOS44MzQyIDAuMTE5MTg3IDE5LjczNTQgMC4xMTkxNDEgMTkuNTkxNVYxNi40ODU1WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMzEuMDk4OSAxNi4yOTQ4QzMxLjIzMzQgMTYuMjQyOCAzMS4zNzc5IDE2LjM0MTcgMzEuMzc3OSAxNi40ODU1VjE5LjU5MTVDMzEuMzc3OSAxOS43MzU0IDMxLjIzMzQgMTkuODM0MiAzMS4wOTg5IDE5Ljc4MjJMMjcuMDg4IDE4LjIyOTNDMjYuOTEzNCAxOC4xNjE3IDI2LjkxMzQgMTcuOTE1MyAyNy4wODggMTcuODQ3N0wzMS4wOTg5IDE2LjI5NDhaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik00LjYxOTg2IDEzLjk2ODFDNC43NTQ1MiAxMy45MTQgNC45MDEyNyAxNC4wMTMgNC45MDEzNCAxNC4xNTc5VjE3LjM5MjlDNC45MDEzNCAxNy41Mzc5IDQuNzU0NTQgMTcuNjM3IDQuNjE5ODYgMTcuNTgyOUwwLjU5MTM5NiAxNS45NjUzQzAuNDIwMDU1IDE1Ljg5NjUgMC40MjAwNTUgMTUuNjU0MyAwLjU5MTM5NiAxNS41ODU1TDQuNjE5ODYgMTMuOTY4MVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTUuNDE0MDYgMTQuMTU3OUM1LjQxNDEzIDE0LjAxMyA1LjU2MDg2IDEzLjkxNCA1LjY5NTU0IDEzLjk2ODFMOS43MjM5OSAxNS41ODU1QzkuODk1MzMgMTUuNjU0MyA5Ljg5NTMzIDE1Ljg5NjUgOS43MjM5OSAxNS45NjUzTDUuNjk1NTQgMTcuNTgyOUM1LjU2MDgzIDE3LjYzNyA1LjQxNDA2IDE3LjUzNzkgNS40MTQwNiAxNy4zOTI5VjE0LjE1NzlaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDE0LjE1NzlDMjYuNTk3NyAxNC4wMTMgMjYuNzQ0NSAxMy45MTQgMjYuODc5MiAxMy45NjgxTDMwLjkwNzYgMTUuNTg1NUMzMS4wNzg4IDE1LjY1NDMgMzEuMDc4OCAxNS44OTY1IDMwLjkwNzYgMTUuOTY1M0wyNi44NzkyIDE3LjU4MjlDMjYuNzQ0NSAxNy42MzcgMjYuNTk3NyAxNy41Mzc5IDI2LjU5NzcgMTcuMzkyOVYxNC4xNTc5WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMC4xMTkxNDEgMTEuODI2M0MwLjExOTIxMiAxMS42ODE0IDAuMjY1OTUxIDExLjU4MjUgMC40MDA2MjQgMTEuNjM2Nkw0LjQyOTA5IDEzLjI1NEM0LjYwMDQxIDEzLjMyMjggNC42MDA0MSAxMy41NjQ5IDQuNDI5MDkgMTMuNjMzN0wwLjQwMDYyNCAxNS4yNTE0QzAuMjY1OTE4IDE1LjMwNTUgMC4xMTkxNDEgMTUuMjA2NCAwLjExOTE0MSAxNS4wNjE0VjExLjgyNjNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDExLjYzNjdDMTAuMDUxNCAxMS41ODI2IDEwLjE5ODEgMTEuNjgxNiAxMC4xOTgyIDExLjgyNjRWMTUuMDYxNUMxMC4xOTgyIDE1LjIwNjUgMTAuMDUxNCAxNS4zMDU2IDkuOTE2NzIgMTUuMjUxNUw1Ljg4ODI2IDEzLjYzMzlDNS43MTY5NCAxMy41NjUgNS43MTY5NCAxMy4zMjI5IDUuODg4MjYgMTMuMjU0MUw5LjkxNjcyIDExLjYzNjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xMC43MTA5IDExLjgyNjNDMTAuNzExIDExLjY4MTQgMTAuODU3OCAxMS41ODI1IDEwLjk5MjQgMTEuNjM2NkwxNS4wMjA5IDEzLjI1NEMxNS4xOTIyIDEzLjMyMjggMTUuMTkyMiAxMy41NjQ5IDE1LjAyMDkgMTMuNjMzN0wxMC45OTI0IDE1LjI1MTRDMTAuODU3NyAxNS4zMDU1IDEwLjcxMDkgMTUuMjA2NCAxMC43MTA5IDE1LjA2MTRWMTEuODI2M1oiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTIxLjMwMDggMTEuODI2NEMyMS4zMDA5IDExLjY4MTYgMjEuNDQ3NiAxMS41ODI2IDIxLjU4MjMgMTEuNjM2N0wyNS42MTA3IDEzLjI1NDFDMjUuNzgyMSAxMy4zMjI5IDI1Ljc4MjEgMTMuNTY1IDI1LjYxMDcgMTMuNjMzOUwyMS41ODIzIDE1LjI1MTVDMjEuNDQ3NiAxNS4zMDU2IDIxLjMwMDggMTUuMjA2NSAyMS4zMDA4IDE1LjA2MTVWMTEuODI2NFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTMxLjA5ODQgMTEuNjM2NkMzMS4yMzMxIDExLjU4MjUgMzEuMzc5NyAxMS42ODE0IDMxLjM3OTcgMTEuODI2M1YxNS4wNjE0QzMxLjM3OTcgMTUuMjA2NCAzMS4yMzMxIDE1LjMwNTUgMzEuMDk4NCAxNS4yNTE0TDI3LjA3IDEzLjYzMzdDMjYuODk4NSAxMy41NjQ5IDI2Ljg5ODUgMTMuMzIyOCAyNy4wNyAxMy4yNTRMMzEuMDk4NCAxMS42MzY2WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNNC42MTk4NiA5LjMwMjU4QzQuNzU0NTIgOS4yNDg1MSA0LjkwMTI3IDkuMzQ3NDMgNC45MDEzNCA5LjQ5MjMzVjEyLjcyNzRDNC45MDEzNCAxMi44NzI0IDQuNzU0NTQgMTIuOTcxNSA0LjYxOTg2IDEyLjkxNzRMMC41OTEzOTYgMTEuMjk5N0MwLjQyMDA1NSAxMS4yMzA5IDAuNDIwMDU1IDEwLjk4ODggMC41OTEzOTYgMTAuOTJMNC42MTk4NiA5LjMwMjU4WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNNS40MTQwNiA5LjQ5MjQ2QzUuNDE0MTMgOS4zNDc1NSA1LjU2MDg2IDkuMjQ4NjMgNS42OTU1NCA5LjMwMjcxTDkuNzIzOTkgMTAuOTIwMUM5Ljg5NTMzIDEwLjk4ODkgOS44OTUzMyAxMS4yMzExIDkuNzIzOTkgMTEuMjk5OEw1LjY5NTU0IDEyLjkxNzVDNS41NjA4MyAxMi45NzE2IDUuNDE0MDYgMTIuODcyNSA1LjQxNDA2IDEyLjcyNzVWOS40OTI0NloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE1LjIxMTcgOS4zMDI1OEMxNS4zNDYzIDkuMjQ4NTEgMTUuNDkzMSA5LjM0NzQzIDE1LjQ5MzEgOS40OTIzM1YxMi43Mjc0QzE1LjQ5MzEgMTIuODcyNCAxNS4zNDYzIDEyLjk3MTUgMTUuMjExNyAxMi45MTc0TDExLjE4MzIgMTEuMjk5N0MxMS4wMTE5IDExLjIzMDkgMTEuMDExOSAxMC45ODg4IDExLjE4MzIgMTAuOTJMMTUuMjExNyA5LjMwMjU4WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjUuODAxNSA5LjMwMjcxQzI1LjkzNjIgOS4yNDg2MyAyNi4wODI4IDkuMzQ3NTUgMjYuMDgzMSA5LjQ5MjQ2VjEyLjcyNzVDMjYuMDgzMSAxMi44NzI1IDI1LjkzNjIgMTIuOTcxNiAyNS44MDE1IDEyLjkxNzVMMjEuNzczIDExLjI5OThDMjEuNjAxNyAxMS4yMzExIDIxLjYwMTcgMTAuOTg4OSAyMS43NzMgMTAuOTIwMUwyNS44MDE1IDkuMzAyNzFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDkuNDkyNThDMjYuNTk3NyA5LjM0NzY3IDI2Ljc0NDUgOS4yNDg3NiAyNi44NzkyIDkuMzAyODNMMzAuOTA3NiAxMC45MjAzQzMxLjA3ODggMTAuOTg5IDMxLjA3ODggMTEuMjMxMiAzMC45MDc2IDExLjNMMjYuODc5MiAxMi45MTc2QzI2Ljc0NDUgMTIuOTcxNyAyNi41OTc3IDEyLjg3MjYgMjYuNTk3NyAxMi43Mjc2VjkuNDkyNThaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0wLjExOTE0MSA3LjE2MTc3QzAuMTE5MjEyIDcuMDE2ODYgMC4yNjU5NTEgNi45MTc5NSAwLjQwMDYyNCA2Ljk3MjAyTDQuNDI5MDkgOC41ODk0NEM0LjYwMDQxIDguNjU4MjIgNC42MDA0MSA4LjkwMDM4IDQuNDI5MDkgOC45NjkxNkwwLjQwMDYyNCAxMC41ODY4QzAuMjY1OTE4IDEwLjY0MDkgMC4xMTkxNDEgMTAuNTQxOCAwLjExOTE0MSAxMC4zOTY4VjcuMTYxNzdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDYuOTcyMDJDMTAuMDUxNCA2LjkxNzk1IDEwLjE5ODEgNy4wMTY4NiAxMC4xOTgyIDcuMTYxNzdWMTAuMzk2OEMxMC4xOTgyIDEwLjU0MTggMTAuMDUxNCAxMC42NDA5IDkuOTE2NzIgMTAuNTg2OEw1Ljg4ODI2IDguOTY5MTZDNS43MTY5NCA4LjkwMDM4IDUuNzE2OTQgOC42NTgyMiA1Ljg4ODI2IDguNTg5NDRMOS45MTY3MiA2Ljk3MjAyWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMTAuNzEwOSA3LjE2MTc3QzEwLjcxMSA3LjAxNjg2IDEwLjg1NzggNi45MTc5NSAxMC45OTI0IDYuOTcyMDJMMTUuMDIwOSA4LjU4OTQ0QzE1LjE5MjIgOC42NTgyMiAxNS4xOTIyIDguOTAwMzggMTUuMDIwOSA4Ljk2OTE2TDEwLjk5MjQgMTAuNTg2OEMxMC44NTc3IDEwLjY0MDkgMTAuNzEwOSAxMC41NDE4IDEwLjcxMDkgMTAuMzk2OFY3LjE2MTc3WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjAuNTA2NiA2Ljk3MjAyQzIwLjY0MTIgNi45MTc5NSAyMC43ODggNy4wMTY4NiAyMC43ODgxIDcuMTYxNzdWMTAuMzk2OEMyMC43ODgxIDEwLjU0MTggMjAuNjQxMyAxMC42NDA5IDIwLjUwNjYgMTAuNTg2OEwxNi40NzgxIDguOTY5MTZDMTYuMzA2OCA4LjkwMDM4IDE2LjMwNjggOC42NTgyMiAxNi40NzgxIDguNTg5NDRMMjAuNTA2NiA2Ljk3MjAyWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjEuMzAwOCA3LjE2MTc3QzIxLjMwMDkgNy4wMTY4NiAyMS40NDc2IDYuOTE3OTUgMjEuNTgyMyA2Ljk3MjAyTDI1LjYxMDcgOC41ODk0NEMyNS43ODIxIDguNjU4MjIgMjUuNzgyMSA4LjkwMDM4IDI1LjYxMDcgOC45NjkxNkwyMS41ODIzIDEwLjU4NjhDMjEuNDQ3NiAxMC42NDA5IDIxLjMwMDggMTAuNTQxOCAyMS4zMDA4IDEwLjM5NjhWNy4xNjE3N1oiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTMxLjA5ODQgNi45NzIwMkMzMS4yMzMxIDYuOTE3OTUgMzEuMzc5NyA3LjAxNjg2IDMxLjM3OTcgNy4xNjE3N1YxMC4zOTY4QzMxLjM3OTcgMTAuNTQxOCAzMS4yMzMxIDEwLjY0MDkgMzEuMDk4NCAxMC41ODY4TDI3LjA3IDguOTY5MTZDMjYuODk4NSA4LjkwMDM4IDI2Ljg5ODUgOC42NTgyMiAyNy4wNyA4LjU4OTQ0TDMxLjA5ODQgNi45NzIwMloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTQuNjIyNDkgNC43NzEzNEM0Ljc1Njc5IDQuNzE5MzkgNC45MDEzNCA0LjgxODI0IDQuOTAxNDEgNC45NjIwMlY4LjA2ODEzQzQuOTAxMzYgOC4yMTE5MiA0Ljc1Njc5IDguMzEwNzYgNC42MjI0OSA4LjI1ODgxTDAuNjExMjkgNi43MDU4OEMwLjQzNjg2NCA2LjYzODI5IDAuNDM2ODU5IDYuMzkxODcgMC42MTEyOSA2LjMyNDI4TDQuNjIyNDkgNC43NzEzNFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTUuNDE0MDYgNC45NjIyN0M1LjQxNDExIDQuODE4NDggNS41NTg2NiA0LjcxOTY0IDUuNjkyOTYgNC43NzE1OUw5LjcwNDE2IDYuMzI0NTJDOS44Nzg1OSA2LjM5MjExIDkuODc4NTkgNi42Mzg1MyA5LjcwNDE2IDYuNzA2MTJMNS42OTI5NiA4LjI1OTA2QzUuNTU4NjYgOC4zMTEwMSA1LjQxNDExIDguMjEyMTYgNS40MTQwNiA4LjA2ODM4VjQuOTYyMjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xNS4yMTQzIDQuNzcxMzRDMTUuMzQ4NiA0LjcxOTM5IDE1LjQ5MzEgNC44MTgyNCAxNS40OTMyIDQuOTYyMDJWOC4wNjgxM0MxNS40OTMyIDguMjExOTIgMTUuMzQ4NiA4LjMxMDc2IDE1LjIxNDMgOC4yNTg4MUwxMS4yMDMxIDYuNzA1ODhDMTEuMDI4NyA2LjYzODI5IDExLjAyODcgNi4zOTE4NyAxMS4yMDMxIDYuMzI0MjhMMTUuMjE0MyA0Ljc3MTM0WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMTYuMDAzOSA0Ljk2MjAyQzE2LjAwNCA0LjgxODI0IDE2LjE0ODUgNC43MTkzOSAxNi4yODI4IDQuNzcxMzRMMjAuMjk0IDYuMzI0MjhDMjAuNDY4NCA2LjM5MTg3IDIwLjQ2ODQgNi42MzgyOSAyMC4yOTQgNi43MDU4OEwxNi4yODI4IDguMjU4ODFDMTYuMTQ4NSA4LjMxMDc2IDE2LjAwNCA4LjIxMTkyIDE2LjAwMzkgOC4wNjgxM1Y0Ljk2MjAyWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjUuODA0MiA0Ljc3MTU5QzI1LjkzODQgNC43MTk2NCAyNi4wODI5IDQuODE4NDggMjYuMDgzMSA0Ljk2MjI3VjguMDY4MzhDMjYuMDgyOSA4LjIxMjE2IDI1LjkzODQgOC4zMTEwMSAyNS44MDQyIDguMjU5MDZMMjEuNzkyOSA2LjcwNjEyQzIxLjYxODUgNi42Mzg1MyAyMS42MTg1IDYuMzkyMTEgMjEuNzkyOSA2LjMyNDUyTDI1LjgwNDIgNC43NzE1OVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTI2LjU5NzcgNC45NjIyN0MyNi41OTc3IDQuODE4NDggMjYuNzQyNCA0LjcxOTY0IDI2Ljg3NjYgNC43NzE1OUwzMC44ODc4IDYuMzI0NTJDMzEuMDYyMSA2LjM5MjExIDMxLjA2MjEgNi42Mzg1MyAzMC44ODc4IDYuNzA2MTJMMjYuODc2NiA4LjI1OTA2QzI2Ljc0MjQgOC4zMTEwMSAyNi41OTc3IDguMjEyMTYgMjYuNTk3NyA4LjA2ODM4VjQuOTYyMjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDIuNDQ2MjZDMTAuMDUxNCAyLjM5MjE5IDEwLjE5ODEgMi40OTExMyAxMC4xOTgyIDIuNjM2MDFWNS44NzExQzEwLjE5ODIgNi4wMTYwMyAxMC4wNTE0IDYuMTE1MTYgOS45MTY3MiA2LjA2MTA2TDUuODg4MjYgNC40NDM0MkM1LjcxNjk0IDQuMzc0NjIgNS43MTY5NCA0LjEzMjQ5IDUuODg4MjYgNC4wNjM2OEw5LjkxNjcyIDIuNDQ2MjZaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xMC43MTA5IDIuNjM1ODlDMTAuNzExIDIuNDkxMDEgMTAuODU3OCAyLjM5MjA3IDEwLjk5MjQgMi40NDYxNEwxNS4wMjA5IDQuMDYzNTZDMTUuMTkyMiA0LjEzMjM3IDE1LjE5MjIgNC4zNzQ1IDE1LjAyMDkgNC40NDMzTDEwLjk5MjQgNi4wNjA5NEMxMC44NTc3IDYuMTE1MDQgMTAuNzEwOSA2LjAxNTkxIDEwLjcxMDkgNS44NzA5OFYyLjYzNTg5WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjAuNTA2NiAyLjQ0NjI2QzIwLjY0MTIgMi4zOTIxOSAyMC43ODggMi40OTExMyAyMC43ODgxIDIuNjM2MDFWNS44NzExQzIwLjc4ODEgNi4wMTYwMyAyMC42NDEzIDYuMTE1MTYgMjAuNTA2NiA2LjA2MTA2TDE2LjQ3ODEgNC40NDM0MkMxNi4zMDY4IDQuMzc0NjIgMTYuMzA2OCA0LjEzMjQ5IDE2LjQ3ODEgNC4wNjM2OEwyMC41MDY2IDIuNDQ2MjZaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yMS4zMDA4IDIuNjM2MDFDMjEuMzAwOSAyLjQ5MTEzIDIxLjQ0NzYgMi4zOTIxOSAyMS41ODIzIDIuNDQ2MjZMMjUuNjEwNyA0LjA2MzY4QzI1Ljc4MjEgNC4xMzI0OSAyNS43ODIxIDQuMzc0NjIgMjUuNjEwNyA0LjQ0MzQyTDIxLjU4MjMgNi4wNjEwNkMyMS40NDc2IDYuMTE1MTYgMjEuMzAwOCA2LjAxNjAzIDIxLjMwMDggNS44NzExVjIuNjM2MDFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xNi4wMDM5IDAuMzAxOTA1QzE2LjAwNCAwLjE1NzAxMSAxNi4xNTA3IDAuMDU4MDgwOSAxNi4yODU0IDAuMTEyMTU0TDIwLjMxMzggMS43Mjk1N0MyMC40ODUyIDEuNzk4MzcgMjAuNDg1MiAyLjA0MDUxIDIwLjMxMzggMi4xMDkzMUwxNi4yODU0IDMuNzI2OTdDMTYuMTUwNyAzLjc4MTA0IDE2LjAwMzkgMy42ODE5MyAxNi4wMDM5IDMuNTM2OThWMC4zMDE5MDVaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik01MS4zMSA5LjU0NzRDNTEuMzEgOS42NzkwNyA1MS4yMDMyIDkuNzg1ODEgNTEuMDcxMiA5Ljc4NTgxSDQxLjA1NjFDNDAuOTI0MyA5Ljc4NTgxIDQwLjgxNzMgOS44OTI1NSA0MC44MTczIDEwLjAyNDJWMTYuMjI5QzQwLjgxNzMgMTYuMzYwNiA0MC45MjQzIDE2LjQ2NzQgNDEuMDU2MSAxNi40Njc0SDUwLjMzMjNDNTAuNDY0MSAxNi40Njc0IDUwLjU3MTEgMTYuNTc0MSA1MC41NzExIDE2LjcwNThWMTkuMDg1OUM1MC41NzExIDE5LjIxNzYgNTAuNDY0MSAxOS4zMjQzIDUwLjMzMjMgMTkuMzI0M0g0MS4wNTYxQzQwLjkyNDMgMTkuMzI0MyA0MC44MTczIDE5LjQzMTEgNDAuODE3MyAxOS41NjI3VjI1Ljk3NThDNDAuODE3MyAyNi4xMDc0IDQwLjkyNDMgMjYuMjE0MiA0MS4wNTYxIDI2LjIxNDJINTEuMTc0NkM1MS4zMDY0IDI2LjIxNDIgNTEuNDEzNCAyNi4zMjEgNTEuNDEzNCAyNi40NTI2VjI4Ljg0NzdDNTEuNDEzNCAyOC45NzkzIDUxLjMwNjQgMjkuMDg2MSA1MS4xNzQ2IDI5LjA4NjFIMzcuNzMxQzM3LjU5OTIgMjkuMDg2MSAzNy40OTIyIDI4Ljk3OTMgMzcuNDkyMiAyOC44NDc3VjcuMTUyMzVDMzcuNDkyMiA3LjAyMDY4IDM3LjU5OTIgNi45MTM5NCAzNy43MzEgNi45MTM5NEg1MS4wNzEyQzUxLjIwMzIgNi45MTM5NCA1MS4zMSA3LjAyMDY4IDUxLjMxIDcuMTUyMzVWOS41NDc0Wk01Ni41NzIzIDE3LjMyNjRDNTYuNTcyMyAxNy40MjczIDU2LjY1NCAxNy41MDkgNTYuNzU1IDE3LjUwOUM1Ni44MDggMTcuNTA5IDU2Ljg1ODIgMTcuNDg2MiA1Ni44OTMgMTcuNDQ2NEw2Ni4wMTggNi45OTU2OUM2Ni4wNjM0IDYuOTQzNzQgNjYuMTI5MSA2LjkxMzk0IDY2LjE5ODEgNi45MTM5NEg3Mi44MjM4QzcyLjkwOTcgNi45MTM5NCA3Mi45ODg4IDYuOTU5ODYgNzMuMDMxMyA3LjAzNDI0TDc4LjY2NzYgMTYuOTAwN0M3OC43MDM5IDE2Ljk2NCA3OC43NzEyIDE3LjAwMzEgNzguODQ0MyAxNy4wMDMxQzc4LjkxNzQgMTcuMDAzMSA3OC45ODUgMTYuOTYzOCA3OS4wMjEgMTYuOTAwM0w4NC42MjgyIDcuMDM0N0M4NC42NzA1IDYuOTYwMDUgODQuNzQ5NyA2LjkxMzk0IDg0LjgzNTcgNi45MTM5NEg4OC4wNzU2Qzg4LjI2MDcgNi45MTM5NCA4OC4zNzUzIDcuMTE0OTkgODguMjgxIDcuMjczOTJMODAuNTMzMSAyMC4zMjQ3QzgwLjUxMTIgMjAuMzYxNSA4MC40OTk3IDIwLjQwMzQgODAuNDk5NyAyMC40NDYyVjI4Ljg0NzdDODAuNDk5NyAyOC45NzkzIDgwLjM5MjcgMjkuMDg2MSA4MC4yNjA5IDI5LjA4NjFINzcuNDEzNEM3Ny4yODE2IDI5LjA4NjEgNzcuMTc0NiAyOC45NzkzIDc3LjE3NDYgMjguODQ3N1YyMC40NDYxQzc3LjE3NDYgMjAuNDAzNCA3Ny4xNjMxIDIwLjM2MTUgNzcuMTQxNCAyMC4zMjQ3TDY5Ljc3OTkgNy45MDIzN0M2OS42OTc2IDcuNzYzMjggNjkuNTAzNCA3Ljc0NDYxIDY5LjM5NTkgNy44NjU0Nkw2MS41MDI5IDE2Ljc0MDNDNjEuNDI4MiAxNi44MjQxIDYxLjQyMjIgMTYuOTQ4NSA2MS40ODg0IDE3LjAzOUw3MC4wMDk5IDI4LjcwNzNDNzAuMTI0OCAyOC44NjQ5IDcwLjAxMjEgMjkuMDg2MSA2OS44MTcgMjkuMDg2MUg2Ni40MDQyQzY2LjMyNzMgMjkuMDg2MSA2Ni4yNTQ5IDI5LjA0OTIgNjYuMjEgMjguOTg2OUw1OS4zMzYyIDE5LjQzNzNDNTkuMjQ1NyAxOS4zMTE3IDU5LjA2MTQgMTkuMzAzOSA1OC45NjA2IDE5LjQyMTVMNTYuNjI5NCAyMi4xNDQ0QzU2LjU5MjYgMjIuMTg3NiA1Ni41NzIzIDIyLjI0MjUgNTYuNTcyMyAyMi4yOTkzVjI4Ljg0NzdDNTYuNTcyMyAyOC45NzkzIDU2LjQ2NTMgMjkuMDg2MSA1Ni4zMzM1IDI5LjA4NjFINTMuNDg2QzUzLjM1MzkgMjkuMDg2MSA1My4yNDcyIDI4Ljk3OTMgNTMuMjQ3MiAyOC44NDc3VjcuMTUyMzVDNTMuMjQ3MiA3LjAyMDY4IDUzLjM1MzkgNi45MTM5NCA1My40ODYgNi45MTM5NEg1Ni4zMzM1QzU2LjQ2NTMgNi45MTM5NCA1Ni41NzIzIDcuMDIwNjggNTYuNTcyMyA3LjE1MjM1VjE3LjMyNjRaTTEwNC43ODYgMjguNzY3OEMxMDQuODQyIDI4LjkyMzEgMTA0LjcyNiAyOS4wODYxIDEwNC41NjEgMjkuMDg2MUgxMDEuNTUzQzEwMS40NTEgMjkuMDg2MSAxMDEuMzYgMjkuMDIxNSAxMDEuMzI3IDI4LjkyNTJMOTkuNDE3MiAyMy4zNjkzQzk5LjM4NCAyMy4yNzMgOTkuMjkzMyAyMy4yMDgzIDk5LjE5MTMgMjMuMjA4M0g5MC45NDM5QzkwLjg0MTkgMjMuMjA4MyA5MC43NTA5IDIzLjI3MzEgOTAuNzE4IDIzLjM2OTZMODguODE3MyAyOC45MjQ3Qzg4Ljc4NDEgMjkuMDIxMyA4OC42OTM0IDI5LjA4NjEgODguNTkxMiAyOS4wODYxSDg1LjU2ODZDODUuNDAzMyAyOS4wODYxIDg1LjI4ODIgMjguOTIyOCA4NS4zNDM3IDI4Ljc2NzZMOTMuMDk0MyA3LjA3MjI3QzkzLjEyODUgNi45NzczMyA5My4yMTg1IDYuOTEzOTQgOTMuMzE5MyA2LjkxMzk0SDk2LjgyNUM5Ni45MjYgNi45MTM5NCA5Ny4wMTYgNi45NzczOCA5Ny4wNDk5IDcuMDcyMzlMMTA0Ljc4NiAyOC43Njc4Wk0xMTYuNTczIDI0LjAyOTRDMTE2LjYwMSAyNC4wOTk4IDExNi42NyAyNC4xNDU4IDExNi43NDYgMjQuMTQ1OEMxMTYuODIyIDI0LjE0NTggMTE2Ljg5IDI0LjEgMTE2LjkxOSAyNC4wMjk3TDEyMy44MzEgNy4wNjI1NEMxMjMuODY3IDYuOTcyNjggMTIzLjk1NSA2LjkxMzk0IDEyNC4wNTIgNi45MTM5NEgxMjcuNzYxQzEyNy44OTMgNi45MTM5NCAxMjggNy4wMjA2OCAxMjggNy4xNTIzNVYyOC44NDc3QzEyOCAyOC45NzkzIDEyNy44OTMgMjkuMDg2MSAxMjcuNzYxIDI5LjA4NjFIMTI0Ljk4N0MxMjQuODU2IDI5LjA4NjEgMTI0Ljc0OSAyOC45NzkzIDEyNC43NDkgMjguODQ3N1YxMy4xNjgzQzEyNC43NDkgMTMuMTAwMSAxMjQuNjkzIDEzLjA0NDkgMTI0LjYyNSAxMy4wNDQ5QzEyNC41NzQgMTMuMDQ0OSAxMjQuNTI5IDEzLjA3NTMgMTI0LjUxIDEzLjEyMThMMTE4LjA4NSAyOC45MDc2QzExOC4wNDggMjguOTk3NCAxMTcuOTYgMjkuMDU2MyAxMTcuODY0IDI5LjA1NjNIMTE1LjU1NUMxMTUuNDU4IDI5LjA1NjMgMTE1LjM3IDI4Ljk5NzIgMTE1LjMzNCAyOC45MDY2TDEwOC45ODIgMTMuMTA3NEMxMDguOTYzIDEzLjA2MDYgMTA4LjkxNyAxMy4wMyAxMDguODY3IDEzLjAzQzEwOC43OTkgMTMuMDMgMTA4Ljc0MyAxMy4wODUyIDEwOC43NDMgMTMuMTUzM1YyOC44NDc3QzEwOC43NDMgMjguOTc5MyAxMDguNjM3IDI5LjA4NjEgMTA4LjUwNCAyOS4wODYxSDEwNS44MDVDMTA1LjY3MyAyOS4wODYxIDEwNS41NjYgMjguOTc5MyAxMDUuNTY2IDI4Ljg0NzdWNy4xNTIzNUMxMDUuNTY2IDcuMDIwNjggMTA1LjY3MyA2LjkxMzk0IDEwNS44MDUgNi45MTM5NEgxMDkuNDU0QzEwOS41NTIgNi45MTM5NCAxMDkuNjM5IDYuOTcyNzggMTA5LjY3NiA3LjA2MjcxTDExNi41NzMgMjQuMDI5NFpNOTEuODM4NSAyMC4wOTUyQzkxLjc4NTQgMjAuMjQ5OSA5MS45MDA4IDIwLjQxMDcgOTIuMDY0NCAyMC40MTA3SDk4LjA2NTNDOTguMjI5NCAyMC40MTA3IDk4LjM0NDUgMjAuMjQ5NiA5OC4yOTEyIDIwLjA5NDlMOTUuMTc0OCAxMS4wMzAzQzk1LjE1NzYgMTAuOTgwMiA5NS4xMTA2IDEwLjk0NjcgOTUuMDU3NiAxMC45NDY3Qzk1LjAwNDUgMTAuOTQ2NyA5NC45NTczIDEwLjk4MDMgOTQuOTQwMyAxMS4wMzA1TDkxLjgzODUgMjAuMDk1MloiIGZpbGw9IiMxRTFGMjEiLz4KPC9nPgo8ZGVmcz4KPGNsaXBQYXRoIGlkPSJjbGlwMF8xNTQwOF8xMTg1OSI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMzYiIGZpbGw9IndoaXRlIi8+CjwvY2xpcFBhdGg+CjwvZGVmcz4KPC9zdmc+Cg==">
+    <div class="who"><b>Minted</b> · DoorDash greeting cards</div>
+    <div class="sp"></div>
+    <span class="conn" id="conn"><i></i><span>Connecting…</span></span>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="eyebrow">Order Journey</div>
+  <h1>Follow one DoorDash PO from order to invoice</h1>
+  <form class="search" id="form" autocomplete="off">
+    <input id="q" type="text" inputmode="text" spellcheck="false" placeholder="DoorDash PO number, e.g. POA000…" aria-label="DoorDash PO number">
+    <button class="btn pri" type="submit">Trace</button>
+  </form>
+  <div class="picks" id="picks"><span>Loading examples from the data…</span></div>
+  <div id="out"><div class="loading">Pick an example above or type a PO number.</div></div>
+  <p class="foot">Built from Minted's own files in the Ekyam graph: the SPS order export, CTL's weekly tracking reports, FedEx exports, the BD Wholesale &amp; Accounting PO tracker, Marathon's distribution tab and DoorDash emails. Nothing is typed in by hand.</p>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* Minted page navigation v1: a collapsible left rail linking every Minted demo page.
+ * The page names itself with <meta name="minted-page" content="<id>">.
+ * In Claude each link opens that page's artifact; on the Ekyam server (minted-endpoint set) it opens the sibling file.
+ * window.MintedNav.href(id, hash) gives the link to another page, e.g. MintedNav.href("order-journey", "POA000163948").
+ */
+(function () {
+  "use strict";
+  var PAGES = [
+    { id: "control-tower", group: "Overview", title: "Control Tower", url: "https://claude.ai/artifact/PVCsY99mGRccthZtNPjcym", icon: "M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z" },
+    { id: "order-journey", group: "Orders", title: "Order Journey", url: "https://claude.ai/artifact/XQjxbN7MjVD7LxRUFXLpDo", icon: "M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM19 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM7 17h6a3 3 0 0 0 3-3v-1a3 3 0 0 1 3-3" },
+    { id: "mixed-orders", group: "Orders", title: "Mixed-Order Alert", url: "https://claude.ai/artifact/MqjzFTANaxBME4PPmmiUZ8", icon: "M12 3 2 20h20zM12 10v4M12 17h.01" },
+    { id: "weekly-shipped", group: "Inventory", title: "Weekly Shipped", url: "https://claude.ai/artifact/PRoP2sMgqhRpjxRoHFQcje", icon: "M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4zM16 16h4v4h-4z" },
+    { id: "reorder-planner", group: "Inventory", title: "Reorder Planner", url: "https://claude.ai/artifact/R26KsG3VN93VvjcLeeFqJG", icon: "M4 7h11M4 12h7M4 17h13M19 5v14M16 16l3 3 3-3" },
+    { id: "billing-check", group: "Billing", title: "Billing Check", url: "https://claude.ai/artifact/4T2fn6mGig51Sw2FBT4zZU", icon: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3" },
+    { id: "graph-census", group: "Data", title: "Graph Census", url: "https://claude.ai/artifact/Y4uSyP4Cuax7ECJvAk9bEf", icon: "M6 6a2 2 0 1 0 0-.01M18 6a2 2 0 1 0 0-.01M12 18a2 2 0 1 0 0-.01M8 6h8M7 8l4 8M17 8l-4 8" }
+  ];
+  function hosted() { var m = document.querySelector('meta[name="minted-endpoint"]'); return !!(m && m.content && m.content.trim()); }
+  function href(id, hash) {
+    var p = PAGES.filter(function (x) { return x.id === id; })[0];
+    if (!p) return "#";
+    var base = hosted() || p.url.indexOf("__URL_") === 0 ? p.id + ".html" : p.url;
+    return base + (hash ? "#" + hash : "");
+  }
+  var KEY = "mn_nav_collapsed";
+  function getC() { try { return localStorage.getItem(KEY) === "1"; } catch (e) { return false; } }
+  function setC(v) { try { localStorage.setItem(KEY, v ? "1" : "0"); } catch (e) { /* not kept */ } }
+
+  var CSS =
+    ":root{--nav-w:228px;--nav-wc:62px}" +
+    "html.mn-nav body{padding-left:calc(var(--nav-w) + env(safe-area-inset-left,0px));transition:padding-left .18s}" +
+    "html.mn-nav.mn-c body{padding-left:calc(var(--nav-wc) + env(safe-area-inset-left,0px))}" +
+    ".mn-side{position:fixed;left:0;top:0;bottom:0;width:calc(var(--nav-w) + env(safe-area-inset-left,0px));padding:calc(10px + env(safe-area-inset-top,0px)) 10px calc(12px + env(safe-area-inset-bottom,0px)) calc(10px + env(safe-area-inset-left,0px));background:#0f1725;color:#c9d3e3;z-index:90;display:flex;flex-direction:column;gap:2px;overflow-y:auto;transition:width .18s,transform .2s;font:13px/1.4 'Inter',-apple-system,'Segoe UI',Roboto,Arial,sans-serif}" +
+    "html.mn-c .mn-side{width:calc(var(--nav-wc) + env(safe-area-inset-left,0px))}" +
+    ".mn-head{display:flex;align-items:center;gap:8px;padding:4px 4px 12px;border-bottom:1px solid #223049;margin-bottom:8px;min-height:44px}" +
+    ".mn-brand{font-weight:700;color:#fff;font-size:13.5px;white-space:nowrap;overflow:hidden}" +
+    ".mn-brand small{display:block;font-weight:500;color:#8a97ad;font-size:11px}" +
+    ".mn-tog{margin-left:auto;flex:none;width:30px;height:30px;border-radius:8px;border:1px solid #2a3a57;background:#16213a;color:#c9d3e3;cursor:pointer;display:grid;place-items:center}" +
+    ".mn-tog:hover{background:#1e2c4a;color:#fff}" +
+    ".mn-tog svg{transition:transform .18s}html.mn-c .mn-tog svg{transform:rotate(180deg)}" +
+    "html.mn-c .mn-brand,html.mn-c .mn-grp,html.mn-c .mn-lab,html.mn-c .mn-foot{display:none}" +
+    "html.mn-c .mn-head{justify-content:center;padding-inline:0}html.mn-c .mn-tog{margin:0}" +
+    ".mn-grp{font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#6f7d95;padding:10px 8px 4px}" +
+    ".mn-a{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:9px;color:#c9d3e3;text-decoration:none;white-space:nowrap;font-weight:500}" +
+    ".mn-a:hover{background:#18243d;color:#fff}" +
+    ".mn-a:focus-visible,.mn-tog:focus-visible,.mn-menu:focus-visible{outline:2px solid #6f9bff;outline-offset:2px}" +
+    ".mn-a.on{background:#2f6fed;color:#fff}" +
+    ".mn-a svg{flex:none;width:18px;height:18px}" +
+    "html.mn-c .mn-a{justify-content:center;padding:9px 0}" +
+    ".mn-foot{margin-top:auto;padding:12px 8px 0;border-top:1px solid #223049;font-size:11px;color:#8a97ad;line-height:1.5}" +
+    ".mn-menu{display:none;border:1px solid #d5dbe4;background:#fff;border-radius:9px;width:36px;height:34px;cursor:pointer;place-items:center;color:#16202e;flex:none}" +
+    ".mn-scrim{display:none}" +
+    "@media (max-width:860px){" +
+      "html.mn-nav body,html.mn-nav.mn-c body{padding-left:0}" +
+      ".mn-side{width:calc(250px + env(safe-area-inset-left,0px));transform:translateX(-105%);box-shadow:0 10px 40px rgba(0,0,0,.35)}" +
+      "html.mn-c .mn-side{width:calc(250px + env(safe-area-inset-left,0px))}" +
+      "html.mn-c .mn-brand,html.mn-c .mn-grp,html.mn-c .mn-lab,html.mn-c .mn-foot{display:block}html.mn-c .mn-a{justify-content:flex-start;padding:8px 9px}" +
+      "html.mn-open .mn-side{transform:none}" +
+      ".mn-tog{display:none}.mn-menu{display:grid}" +
+      "html.mn-open .mn-scrim{display:block;position:fixed;inset:0;background:rgba(15,23,37,.45);z-index:85}" +
+    "}" +
+    "@media (prefers-reduced-motion:reduce){.mn-side,html.mn-nav body{transition:none}}";
+
+  function svg(d) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/></svg>'; }
+
+  function mount() {
+    var meta = document.querySelector('meta[name="minted-page"]');
+    var cur = meta ? meta.content : "";
+    var st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st);
+    var root = document.documentElement; root.classList.add("mn-nav"); if (getC()) root.classList.add("mn-c");
+    var groups = [], html = "";
+    PAGES.forEach(function (p) {
+      if (groups.indexOf(p.group) < 0) { groups.push(p.group); html += '<div class="mn-grp">' + p.group + "</div>"; }
+      html += '<a class="mn-a' + (p.id === cur ? " on" : "") + '" href="' + href(p.id) + '"' + (p.id === cur ? ' aria-current="page"' : "") + ' title="' + p.title + '">' + svg(p.icon) + '<span class="mn-lab">' + p.title + "</span></a>";
+    });
+    var side = document.createElement("nav");
+    side.className = "mn-side"; side.setAttribute("aria-label", "Minted pages");
+    side.innerHTML = '<div class="mn-head"><div class="mn-brand">Minted × DoorDash<small>Ekyam demo pages</small></div>' +
+      '<button class="mn-tog" type="button" aria-label="Collapse or expand the menu" title="Collapse or expand">' + svg("M15 6l-6 6 6 6") + "</button></div>" +
+      html + '<div class="mn-foot">Every page reads the same Minted tools on Ekyam, so the numbers agree everywhere.</div>';
+    document.body.insertBefore(side, document.body.firstChild);
+    var scrim = document.createElement("div"); scrim.className = "mn-scrim"; document.body.appendChild(scrim);
+    side.querySelector(".mn-tog").onclick = function () { var c = !root.classList.contains("mn-c"); root.classList.toggle("mn-c", c); setC(c); };
+    scrim.onclick = function () { root.classList.remove("mn-open"); };
+    var bar = document.querySelector(".top .wrap");
+    if (bar) {
+      var b = document.createElement("button"); b.className = "mn-menu"; b.type = "button"; b.setAttribute("aria-label", "Open the page menu");
+      b.innerHTML = svg("M4 7h16M4 12h16M4 17h16");
+      b.onclick = function () { root.classList.toggle("mn-open"); };
+      bar.insertBefore(b, bar.firstChild);
+    }
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") root.classList.remove("mn-open"); });
+    // In Claude each page is its own artifact: open links to the others in a new tab (the viewer frame can't navigate itself).
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest && e.target.closest("a[href]");
+      if (a && /^https:\/\/claude\.ai\/artifact\//.test(a.getAttribute("href"))) { a.target = "_blank"; a.rel = "noopener"; }
+    }, true);
+  }
+
+  window.MintedNav = { href: href, pages: PAGES, mount: mount };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount); else mount();
+})();
+
+</script>
+<script>
+/* Minted data layer v1 (Oct 31 2026)
+ * One way for every Minted demo page to call the Minted tools, so the numbers are the same everywhere.
+ *
+ *  - In Claude (published artifact): calls go through the viewer's "Ekyam Dev" connector
+ *    (artifact capability `mcp`). Nothing else to set up.
+ *  - On the Ekyam server (Gemini, a plain browser): set
+ *      <meta name="minted-endpoint" content="https://<ekyam-host>/minted/api/tools">
+ *    and the page sends  POST <endpoint>/<tool_name>  with the tool's input as a JSON body,
+ *    cookies included (the Ekyam server signs the user in). The server answers with the tool's
+ *    JSON exactly as the MCP tool returns it ({"success": true, ...}).
+ *
+ * API (window.MintedData):
+ *   await MintedData.init()                  -> "claude" | "ekyam" | "none"
+ *   await MintedData.call(tool, input, {refresh})  -> the tool's JSON; throws {code, message}
+ *   MintedData.explain(error)                -> one plain sentence for the page
+ *   await MintedData.save(filename, text, mime)    -> offers a file to the viewer
+ */
+(function () {
+  "use strict";
+  var SERVER = "Ekyam Dev";
+  // Tools that keep a 24 h result cache on the server and accept refresh=true.
+  var CACHED = {
+    minted_weekly_shipped_by_card: 1, minted_reorder_plan: 1, minted_build_seasonal_po: 1,
+    minted_order_check: 1, minted_delivery_status: 1, minted_billing_report: 1, minted_cards_by_location: 1
+  };
+  var modeP = null, mcp = null, ep = "";
+
+  function endpoint() {
+    var m = document.querySelector('meta[name="minted-endpoint"]');
+    return m && m.content ? m.content.trim().replace(/\/+$/, "") : "";
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function err(code, message, extra) { var e = new Error(message); e.code = code; if (extra) { for (var k in extra) e[k] = extra[k]; } return e; }
+
+  function init() {
+    if (modeP) return modeP;
+    modeP = (async function () {
+      ep = endpoint();
+      if (window.claude && typeof window.claude.use === "function") {
+        try { mcp = await window.claude.use("mcp"); } catch (e) { mcp = null; }
+        if (mcp) return "claude";
+      }
+      if (ep) return "ekyam";
+      return "none";
+    })();
+    return modeP;
+  }
+
+  function cleanInput(tool, input, refresh) {
+    var out = {};
+    Object.keys(input || {}).forEach(function (k) {
+      var v = input[k];
+      if (v !== undefined && v !== null && v !== "") out[k] = v;
+    });
+    if (refresh && CACHED[tool]) out.refresh = true;
+    return out;
+  }
+
+  function payloadOf(res) {
+    var p = res && res.payload !== undefined ? res.payload
+      : res && res.structuredContent !== undefined ? res.structuredContent
+      : res && res.content && res.content[0] && res.content[0].text;
+    if (typeof p === "string") { try { p = JSON.parse(p); } catch (e) { /* keep text */ } }
+    return p;
+  }
+
+  function toolMessage(e) {
+    var t = e && e.result && e.result.content && e.result.content[0] && e.result.content[0].text;
+    if (!t) return (e && e.message) || "";
+    try { var j = JSON.parse(t); return j.error || j.message || t; } catch (x) { return t; }
+  }
+
+  async function call(tool, input, opts) {
+    opts = opts || {};
+    var mode = await init();
+    var args = cleanInput(tool, input, opts.refresh);
+    if (mode === "claude") {
+      var res;
+      try {
+        res = await mcp.callTool(SERVER, tool, args,
+          opts.refresh ? { cache: false } : { cache: { staleTime: 10 * 60 * 1000, gcTime: 24 * 3600 * 1000 } });
+      } catch (e) {
+        if (e && e.retryable && !opts._retried) {
+          await sleep(e.retryAfterMs || (500 + Math.random() * 900));
+          return call(tool, input, Object.assign({}, opts, { _retried: true }));
+        }
+        if (e && e.code === "tool_error") throw err("tool_error", toolMessage(e) || "The tool reported an error.");
+        throw err((e && e.code) || "upstream_error", (e && e.message) || "The call failed.");
+      }
+      var p = payloadOf(res);
+      if (!p || typeof p !== "object") throw err("bad_answer", "The tool sent back something this page can't read.");
+      if (p.success === false) throw err("tool_failed", p.error || "The tool could not answer with these inputs.");
+      return p;
+    }
+    if (mode === "ekyam") {
+      var r;
+      try {
+        r = await fetch(ep + "/" + encodeURIComponent(tool), {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(args)
+        });
+      } catch (e) {
+        throw err("network", "The Ekyam server could not be reached.");
+      }
+      if (r.status === 401 || r.status === 403) throw err("signed_out", "Not signed in to Ekyam.");
+      if (!r.ok) {
+        if (r.status >= 500 && !opts._retried) { await sleep(800); return call(tool, input, Object.assign({}, opts, { _retried: true })); }
+        throw err("server_error", "The Ekyam server answered " + r.status + ".");
+      }
+      var j = await r.json();
+      if (j && j.success === false) throw err("tool_failed", j.error || "The tool could not answer with these inputs.");
+      return j;
+    }
+    throw err("no_connection", "No data connection.");
+  }
+
+  function explain(e) {
+    var c = e && e.code;
+    switch (c) {
+      case "server_not_connected": return "Add the Ekyam Dev connector in claude.ai Settings → Connectors, then reload this page.";
+      case "needs_reauth": return "Reconnect Ekyam Dev in claude.ai Settings → Connectors, then reload.";
+      case "not_in_manifest": return "This page isn't allowed to use Ekyam Dev for you. Turn it on in this page's Permissions menu, then reload.";
+      case "approval_required": return "This page needs your OK to use Ekyam Dev. Press Refresh and allow it when Claude asks.";
+      case "selection_required": return "You have more than one connector named Ekyam Dev. Pick one when Claude asks, then reload.";
+      case "blocked_by_policy": return "Your organization's settings block this Ekyam Dev tool for your account.";
+      case "server_unavailable": case "upstream_error": return "Ekyam Dev didn't answer just now. Press Refresh in a minute.";
+      case "tool_error": return "Ekyam Dev returned an error: " + (e.message || "no details") + ".";
+      case "tool_failed": return e.message || "The tool could not answer with these inputs.";
+      case "not_granted": case "capability_disabled": case "capability_removed":
+        return "This view can't reach connectors. Open the page on claude.ai to load live data.";
+      case "signed_out": return "Sign in to Ekyam, then reload this page.";
+      case "network": case "server_error": return "The Ekyam server didn't answer. Try again in a minute.";
+      case "no_connection": return "Open this page on claude.ai with the Ekyam Dev connector, or from the Ekyam server, to load live data.";
+      default: return (e && e.message) || "The data could not be loaded.";
+    }
+  }
+
+  async function save(filename, text, mime) {
+    var mode = await init();
+    if (mode === "claude") {
+      var dl = null;
+      try { dl = await window.claude.use("downloads"); } catch (e) { dl = null; }
+      if (!dl) throw err("no_downloads", "Downloads aren't available in this view.");
+      await dl.save({ filename: filename, data: new Blob([text], { type: mime || "text/csv" }) });
+      return true;
+    }
+    var url = URL.createObjectURL(new Blob([text], { type: mime || "text/csv" }));
+    var a = document.createElement("a"); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    return true;
+  }
+
+  window.MintedData = { init: init, call: call, explain: explain, save: save, SERVER: SERVER };
+})();
+
+</script>
+<script>
+(function(){
+"use strict";
+var D=window.MintedData, $=function(id){ return document.getElementById(id); };
+var esc=function(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); };
+var MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function dlong(s){ if(!s) return ""; var p=String(s).slice(0,10).split("-"); return MON[+p[1]-1]+" "+(+p[2])+", "+p[0]; }
+function dshort(s){ if(!s) return ""; var p=String(s).slice(0,10).split("-"); return MON[+p[1]-1]+" "+(+p[2]); }
+function tm(s){ if(!s||String(s).length<16) return ""; var h=+String(s).slice(11,13), m=String(s).slice(14,16); return (h%12||12)+":"+m+(h<12?" am":" pm"); }
+function days(a,b){ if(!a||!b) return null; return Math.round((Date.parse(String(b).slice(0,10)+"T00:00:00Z")-Date.parse(String(a).slice(0,10)+"T00:00:00Z"))/86400000); }
+function usd(x){ return x==null?"—":"$"+Number(x).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function n0(x){ return Number(x||0).toLocaleString("en-US"); }
+function pill(c,t){ return '<span class="pill '+c+'">'+esc(t)+'</span>'; }
+var toastT; function toast(t){ var e=$("toast"); e.textContent=t; e.hidden=false; clearTimeout(toastT); toastT=setTimeout(function(){ e.hidden=true; },3000); }
+function copyText(t){ var ok=function(){ toast("Reply copied"); }, fb=function(){ var a=document.createElement("textarea"); a.value=t; a.style.position="fixed"; a.style.opacity="0"; document.body.appendChild(a); a.select(); var r=false; try{ r=document.execCommand("copy"); }catch(e){} a.remove(); toast(r?"Reply copied":"Select the text and copy it by hand"); }; try{ navigator.clipboard.writeText(t).then(ok,fb); }catch(e){ fb(); } }
+
+var SOURCE_NAMES={bd_tracker:"Accounting PO tracker",ctl_tracking_reports:"CTL weekly tracking reports",ddhol102325_distribution_tab:"Marathon PO DDHOL102325 (distribution tab)",sps_seasonal_sample_10_19:"SPS seasonal sample (10/19)"};
+function sourceName(s){ if(SOURCE_NAMES[s]) return SOURCE_NAMES[s]; if(/^sps_cancelled/.test(s)) return "SPS cancelled-PO file"; if(/^sps_/.test(s)) return "SPS order export ("+s.replace(/^sps_/,"").replace(/_/g," ")+")"; return s.replace(/_/g," "); }
+
+/* ---------- quick picks, pulled live from the other tools ---------- */
+var PICKS=[];
+function addPick(label,po,why){ if(!po||PICKS.some(function(p){ return p.po===po; })) return; PICKS.push({label:label,po:po,why:why}); renderPicks(); }
+function renderPicks(){
+  var cur=(location.hash||"").slice(1).toUpperCase();
+  $("picks").innerHTML = PICKS.length ? '<span>Try:</span>'+PICKS.map(function(p){ return '<button type="button" class="pick'+(p.po===cur?" on":"")+'" data-po="'+esc(p.po)+'" title="'+esc(p.why)+'">'+esc(p.label)+' <span class="mono">'+esc(p.po)+'</span></button>'; }).join("") : '<span>No examples could be loaded.</span>';
+}
+function loadPicks(){
+  var jobs=[
+    D.call("minted_billing_report",{rows:"all",offset:470,limit:80}).then(function(p){
+      var rows=(p.rows||[]).filter(function(r){ return r.tracker_check==="matches"&&r["Delivered Date"]&&r["Delivered Date"]!=="Cancelled"; });
+      var pref=rows.filter(function(r){ return r.shipped_date_source==="fedex"; });
+      var r=(pref.length?pref:rows).slice(-1)[0]; if(r) addPick("Shipped, delivered, billed",r["PO#"],"Every step done and billing matches the order");
+      return p;
+    }),
+    D.call("minted_order_check",{show:"mixed",limit:1}).then(function(p){ var o=(p.orders||[])[0]; if(o) addPick("Mixed order",o.po,"Seasonal card inside an everyday order"); }),
+    D.call("minted_delivery_status",{limit:1}).then(function(p){ var o=(p.open_packages||[])[0]; if(o&&o.status==="exception") addPick("FedEx exception",o.po,"Held up by FedEx"); }),
+    D.call("minted_billing_report",{rows:"new",limit:1}).then(function(p){ var r=(p.rows||[])[0]; if(r) addPick("Shipped, not billed yet",r["PO#"],"Not in the accounting tracker yet"); }),
+    D.call("minted_order_check",{show:"seasonal",limit:1}).then(function(p){ var o=(p.orders||[])[0]; if(o) addPick("Seasonal, Marathon ships",o.po,"Printed and shipped direct by Marathon"); })
+  ];
+  return Promise.all(jobs.map(function(j){ return j.catch(function(e){ return {__err:e}; }); })).then(function(rs){
+    renderPicks();
+    var errs=rs.filter(function(r){ return r&&r.__err; });
+    if(errs.length===rs.length){ $("conn").className="conn bad"; $("conn").lastChild.textContent="Not connected"; $("picks").innerHTML='<div class="msg err" style="width:100%">'+esc(D.explain(errs[0].__err))+'</div>'; }
+  });
+}
+$("picks").addEventListener("click",function(e){ var b=e.target.closest(".pick"); if(b) go(b.getAttribute("data-po")); });
+$("form").addEventListener("submit",function(e){ e.preventDefault(); var v=$("q").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,""); if(v) go(v); });
+
+function go(po){
+  try{ history.replaceState(null,"","#"+po); }catch(x){ location.hash=po; }
+  trace(po);
+}
+window.addEventListener("hashchange",function(){ var h=location.hash.slice(1); if(h) trace(h); });
+
+/* ---------- the journey ---------- */
+var seq=0;
+function trace(po){
+  po=String(po).toUpperCase(); $("q").value=po; renderPicks();
+  var my=++seq;
+  $("out").innerHTML='<div class="loading">Tracing '+esc(po)+' through SPS, CTL, FedEx and the accounting tracker…</div>';
+  Promise.all([
+    D.call("minted_order_trace",{po_number:po}),
+    D.call("minted_order_check",{po_number:po,show:"all",limit:1}).catch(function(){ return null; })
+  ]).then(function(r){
+    if(my!==seq) return;
+    $("conn").className="conn ok"; $("conn").lastChild.textContent="Live from Ekyam";
+    render(r[0], r[1]);
+  },function(e){
+    if(my!==seq) return;
+    $("out").innerHTML='<div class="msg err">'+esc(D.explain(e))+'</div>';
+  });
+}
+
+function render(p, chk){
+  if(!p.found){ $("out").innerHTML='<div class="msg info">'+esc(p.note||("No DoorDash order "+p.po+" in Minted's data."))+'</div>'; return; }
+  var o=p.order||{}, a=o.ship_to||{}, lines=p.lines||[], ships=p.shipments||[], bills=p.billing||[], ev=(p.events||[]).slice(), ck=p.checks||{};
+  var s=ships[0]||null, b=bills[0]||null;
+  var cls=chk&&chk.orders&&chk.orders[0]?chk.orders[0]["class"]:(chk&&chk.summary&&chk.summary.no_line_detail?"tracker only":null);
+  var flag=chk&&chk.orders&&chk.orders[0]||null;
+  var cancelled=o.status==="CANCELLED", marathon=o.status==="SENT_TO_MARATHON";
+  var linesQty=lines.reduce(function(t,l){ return t+Number(l.ordered||0); },0);
+  if(cancelled&&!o.cards&&linesQty) o.cards=linesQty;
+
+  /* stations */
+  var st=[];
+  st.push({lab:"DoorDash order", state:"done", ico:"1",
+    when:o.placed?dlong(o.placed):"Date not in the files", sub:o.due?"due "+dlong(o.due):"",
+    what:n0(o.cards)+" card"+(o.cards===1?"":"s")+(o.po_total!=null?" · "+usd(o.po_total):"")+(o.po_total_derived?" (priced from the card list)":"")+(a.code?" · to "+a.code:""),
+    src:(o.sources||[]).some(function(x){ return /^sps_/.test(x); })?"SPS order export":"Seen on "+((o.sources||[]).map(sourceName).join(", ")||"other files")});
+  if(cancelled){
+    st.push({lab:"Shipped", state:"bad", ico:"✕", when:"Cancelled", what:"Never shipped. "+(cls==="mixed"?"CTL can't ship the seasonal card in this everyday order.":""), src:"Accounting PO tracker"});
+    st.push({lab:"With FedEx", state:"skip", ico:"–", when:"—", what:"No package"});
+    st.push({lab:"Delivered", state:"skip", ico:"–", when:"—", what:"No delivery"});
+  } else if(marathon){
+    st.push({lab:"Printed & shipped", state:"hand", ico:"M", when:"Marathon Press", what:"Seasonal cards go on Marathon's PO and ship straight to "+(a.code||"the location")+". CTL never touches them.", src:"Marathon distribution tab"});
+    st.push({lab:"With FedEx", state:"skip", ico:"?", when:"No tracking shared", what:"Marathon ships FedEx Ground on Minted's account; tracking isn't in the files Minted shared."});
+    st.push({lab:"Delivered", state:"skip", ico:"?", when:"Not in the files", what:""});
+  } else if(s){
+    st.push({lab:"CTL shipped", state:"done", ico:"2", when:dlong(s.ctl_shipped), sub:o.placed?days(o.placed,s.ctl_shipped)+" day(s) after the order":"",
+      what:s.source==="bd_tracker"?"Ship date and tracking from the accounting tracker":n0(s.cards)+" card"+(s.cards===1?"":"s")+" in "+(s.boxes||1)+" box"+((s.boxes||1)>1?"es":""), src:s.source==="bd_tracker"?"Accounting PO tracker":"CTL weekly tracking report"});
+    st.push({lab:"With FedEx", state:"done", ico:"3", when:dlong(s.fedex_shipped||s.ctl_shipped), sub:s.service?String(s.service).replace(/_/g," ").toLowerCase():"",
+      what:'Tracking <span class="mono">'+esc(s.tracking)+'</span>', src:s.fedex_shipped?"FedEx export":"CTL report", raw:true});
+    if(s.delivered){
+      st.push({lab:"Delivered", state:"done", ico:"4", when:dlong(s.delivered)+(tm(s.delivered)?" <small>"+tm(s.delivered)+"</small>":""), raw2:true,
+        sub:days(s.ctl_shipped,s.delivered)+" day(s) in transit", what:s.fedex_detail&&/signed/i.test(s.fedex_detail)?s.fedex_detail.replace(/^Delivered:[^S]*/,""):"", src:s.delivered_source==="bd_tracker"?"Accounting PO tracker":"FedEx export"});
+    } else if(s.status==="exception"){
+      st.push({lab:"Delivery", state:"bad", ico:"!", when:"FedEx exception", sub:s.scheduled?"now due "+dlong(s.scheduled):"", what:s.fedex_detail||"", src:"FedEx export"});
+    } else if(s.status==="in_transit"||s.status==="out_for_delivery"){
+      st.push({lab:"Delivery", state:"warn", ico:"…", when:s.status==="out_for_delivery"?"Out for delivery":"In transit", sub:s.scheduled?"due "+dlong(s.scheduled):"", what:s.fedex_detail||"", src:"FedEx export"});
+    } else {
+      st.push({lab:"Delivered", state:"skip", ico:"?", when:"No FedEx update", what:"This package isn't in the FedEx exports Minted shared, so delivery is unknown here, not late."});
+    }
+  } else {
+    st.push({lab:"CTL shipped", state:"warn", ico:"…", when:"Not shipped yet", what:"No CTL shipment for this PO in the reports loaded."});
+    st.push({lab:"With FedEx", state:"skip", ico:"–", when:"—", what:""});
+    st.push({lab:"Delivered", state:"skip", ico:"–", when:"—", what:""});
+  }
+  if(b){
+    var bc=b.bill_status==="cancelled";
+    st.push({lab:"Billed", state:bc?"done":(b.check==="matches order"?"done":"bad"), ico:bc?"0":"5", when:dlong(b.issued)+" <small>PO tracker row "+esc(b.tracker_row)+"</small>", raw2:true,
+      what:bc?"Written as Cancelled, $0":usd(b.po_amount)+" + "+usd(b.shipping_charge)+" shipping · "+(b.check==="matches order"?"matches the order":esc(b.check)), src:"Accounting PO tracker"});
+  } else {
+    st.push({lab:"Billed", state:marathon?"skip":"warn", ico:marathon?"–":"$", when:marathon?"Not in the tracker files":"Not billed yet", what:marathon?"":"Not in the accounting PO tracker. The Billing page lists it with the row to add."});
+  }
+  var stHtml=st.map(function(x){ return '<div class="stn '+x.state+'"><div class="rail"></div><div class="dot">'+esc(x.ico)+'</div><div class="lab">'+esc(x.lab)+'</div><div class="when">'+(x.raw2?x.when:esc(x.when))+(x.sub?'<small>'+esc(x.sub)+'</small>':'')+'</div>'+(x.what?'<div class="what">'+(x.raw?x.what:esc(x.what))+'</div>':'')+(x.src?'<div class="src">'+esc(x.src)+'</div>':'')+'</div>'; }).join("");
+
+  /* other events under the line */
+  var evs=[];
+  if(flag&&flag["class"]==="mixed") evs.push({at:flag.flag_date, who:"Ekyam check", what:"Flags it as a mixed order the day it arrives"+(flag.days_earlier_than_doordash_email!=null?", "+flag.days_earlier_than_doordash_email+" days before DoorDash asks":"")+".", cls:"p-grn"});
+  ev.forEach(function(e){ evs.push({at:e.at, who:e.by||"", what:e.reason||e.status, cls:e.status==="DOORDASH_INQUIRY"?"p-amb":"p-gry"}); });
+  evs.sort(function(x,y){ return (x.at||"9")<(y.at||"9")?-1:1; });
+  var evHtml=evs.length?'<div class="events">'+evs.map(function(e){ return '<div class="ev"><b>'+(e.at?dlong(e.at)+(tm(e.at)?" "+tm(e.at):""):"Date not recorded")+'</b>'+pill(e.cls,e.who)+'<span>'+esc(e.what)+'</span></div>'; }).join("")+'</div>':'';
+
+  /* KPIs */
+  var k=[];
+  var dd=s&&s.delivered?days(o.placed,s.delivered):null;
+  k.push(dd!=null?{k:"Order to doorstep",v:dd+" days",d:"placed "+dshort(o.placed)+" → delivered "+dshort(s.delivered),c:dd<=7?"good":"warn"}:{k:"Order to doorstep",v:"—",d:cancelled?"Cancelled":marathon?"Marathon drop-ship":"Not delivered yet"});
+  var full=lines.filter(function(l){ return l.check==="ok"; }).length;
+  if(cancelled) k.push({k:"Lines shipped",v:"None",d:lines.length+" line"+(lines.length===1?"":"s")+" cancelled"});
+  else if(marathon) k.push({k:"Lines",v:lines.length+" on Marathon's PO",d:n0(linesQty)+" cards printed and shipped direct"});
+  else k.push(lines.length?{k:"All cards shipped",v:full+" of "+lines.length+" lines",d:ck.short_shipped_lines?ck.short_shipped_lines+" short":"No short shipments",c:full===lines.length?"good":"bad"}:{k:"All cards shipped",v:"—",d:"Card lines not in the files for this PO"});
+  k.push(b?{k:"Billing check",v:b.bill_status==="cancelled"?"Cancelled":(b.check==="matches order"?"Matches":"Differs"),d:b.bill_status==="cancelled"?"Billed at $0":(b.check==="matches order"?"PO $, quantity, shipping and tracking agree":b.check),c:b.check==="matches order"||b.bill_status==="cancelled"?"good":"bad"}:(marathon?{k:"Billing check",v:"—",d:"Not in the tracker files Minted shared"}:{k:"Billing check",v:"Not billed",d:"Add it to the PO tracker",c:"warn"}));
+  k.push(cancelled?{k:"Shipping charge",v:"$0.00",d:"Cancelled orders aren't charged"}:{k:"Shipping charge",v:ck.shipping_charge_expected!=null?usd(ck.shipping_charge_expected):"—",d:"Minted's rule for "+n0(o.cards)+" cards: up to 50 $8.60, 51–150 $9.00, 151+ $10.00"});
+  var kHtml='<div class="kpis">'+k.map(function(x){ return '<div class="kpi '+(x.c||"")+'"><div class="k">'+esc(x.k)+'</div><div class="v">'+esc(x.v)+'</div><div class="d">'+esc(x.d)+'</div></div>'; }).join("")+'</div>';
+
+  /* lines */
+  var lHtml=lines.length?'<div class="scroll"><table><thead><tr><th>Card</th><th>SKU</th><th class="num">Ordered</th><th class="num">Shipped</th><th class="num">Price</th><th class="num">Line</th><th>Check</th></tr></thead><tbody>'+lines.map(function(l){
+      var ok=l.check==="ok", c=ok?pill("p-grn","All cards shipped"):/^short/.test(l.check)?pill("p-red",l.check):pill(marathon?"p-pur":"p-gry",marathon?"Marathon drop-ship":l.check);
+      var alias=l.ordered_upc&&l.sku&&l.sku.indexOf(l.ordered_upc)!==0?'<div class="sm mut">DoorDash ordered it as '+esc(l.ordered_upc)+'</div>':'';
+      var sea=l.program==="Seasonal"&&!marathon?' '+pill("p-red","Seasonal"):'';
+      return '<tr><td>'+esc(l.card)+sea+alias+'</td><td class="mono">'+esc(l.sku)+'</td><td class="num">'+n0(l.ordered)+'</td><td class="num">'+n0(l.shipped)+'</td><td class="num">'+(l.price!=null?usd(l.price):"—")+'</td><td class="num">'+(l.line_total!=null?usd(l.line_total):"—")+'</td><td>'+c+'</td></tr>'; }).join("")+'</tbody></table></div>'
+    :'<div class="card-b"><div class="msg info">Card lines aren\'t in the files for this PO; it is known only from '+esc((o.sources||[]).map(sourceName).join(", "))+'.</div></div>';
+
+  /* billing vs order */
+  var cmp="";
+  if(b&&b.bill_status!=="cancelled"){
+    var row=function(l,ord,bil,okk){ return '<tr><td class="lbl">'+l+'</td><td class="num">'+ord+'</td><td class="num">'+bil+'</td><td class="'+(okk?"ok":"no")+'">'+(okk?"✓":"✕")+'</td></tr>'; };
+    var trk=ships.map(function(x){ return x.tracking; });
+    cmp='<div class="scroll"><table class="cmp"><thead><tr><th></th><th class="num">Order / CTL / rule</th><th class="num">PO tracker</th><th></th></tr></thead><tbody>'+
+      row("PO $",usd(o.po_total),usd(b.po_amount),o.po_total==null||Math.abs((o.po_total||0)-(b.po_amount||0))<0.005)+
+      row("Cards",n0(o.cards),n0(b.total_qty),b.total_qty==null||+b.total_qty===+o.cards)+
+      row("Shipping",usd(ck.shipping_charge_expected),usd(b.shipping_charge),b.shipping_charge==null||Math.abs((ck.shipping_charge_expected||0)-(b.shipping_charge||0))<0.005)+
+      row("Tracking #",'<span class="mono">'+esc(trk[0]||"—")+'</span>','<span class="mono">'+esc(b.tracking||"—")+'</span>',!b.tracking||!trk.length||trk.indexOf(b.tracking)>=0)+
+      '</tbody></table></div>';
+  }
+
+  var notes=(p.data_notes||[]).map(function(n){ return '<div class="msg note">'+esc(n)+'</div>'; }).join("");
+  var typeP=cls==="mixed"?pill("p-red","Mixed order"):cls==="seasonal"?pill("p-pur","Seasonal"):cls==="everyday"?pill("p-blu","Everyday"):pill("p-gry","Card lines unknown");
+  var statP=cancelled?pill("p-gry","Cancelled"):marathon?pill("p-pur","Sent to Marathon"):!s?pill("p-amb","Not shipped yet"):s.delivered?pill("p-grn","Delivered"):s.status==="exception"?pill("p-red","FedEx exception"):(s.status==="in_transit"||s.status==="out_for_delivery")?pill("p-blu","In transit"):pill("p-gry","Shipped · no FedEx update");
+
+  $("out").innerHTML=
+    '<div class="head"><div><h2>'+esc(o.po)+'</h2><div class="meta"><b>'+esc(o.customer||"DoorDash")+'</b>'+[a.code,[a.street,a.street2,a.city,a.state,a.zip].filter(Boolean).join(", "),o.fulfilled_from?"ships from "+o.fulfilled_from:""].filter(Boolean).map(function(x){ return " · "+esc(x); }).join("")+'</div></div><div class="sp"></div>'+typeP+' '+statP+'</div>'+
+    '<section class="journey" aria-label="Order timeline"><div class="stations">'+stHtml+'</div>'+evHtml+'</section>'+
+    kHtml+
+    '<div class="card"><div class="card-h"><h3>What DoorDash ordered, and what shipped</h3><span class="sub">'+(marathon?"Lines on Marathon\'s seasonal PO":cancelled?"Cancelled before shipping":"Matched to CTL\'s report by card · delivery: "+(!s?"not shipped yet":s.delivered?"delivered "+dshort(s.delivered):s.status==="exception"?"FedEx exception":(s.status==="in_transit"||s.status==="out_for_delivery")?"in transit":"no FedEx update"))+'</span></div>'+lHtml+'</div>'+
+    '<div class="grid2"><div class="card"><div class="card-h"><h3>Billing against the order</h3></div>'+(cmp||'<div class="card-b mut sm">'+(b?"Billed as cancelled, $0.":marathon?"Seasonal POs aren\'t in the tracker files Minted shared.":"No line in the accounting PO tracker yet.")+'</div>')+'</div>'+
+    '<div class="card"><div class="card-h"><h3>Where this came from</h3></div><div class="card-b"><div class="srcs">'+(o.sources||[]).map(function(x){ return '<span>'+esc(sourceName(x))+'</span>'; }).join("")+(ships.some(function(x){ return x.fedex_shipped||x.delivered_source==="fedex"; })?'<span>FedEx export</span>':'')+'</div>'+(notes?'<div style="margin-top:10px">'+notes+'</div>':'')+'</div></div></div>'+
+    (p.draft_reply||(flag&&flag.draft_reply)?'<div class="card"><div class="card-h"><h3>Reply to DoorDash</h3><span class="sub">Drafted from the facts above</span><span class="sp"></span><button class="btn sm" type="button" id="cp">Copy</button></div><div class="card-b"><div class="reply" id="rp">'+esc(p.draft_reply||flag.draft_reply)+'</div></div></div>':'');
+  var rp=$("rp"); if(rp) rp.textContent=rp.textContent.replace(/\):\s*\./,").");
+  var cp=$("cp"); if(cp) cp.onclick=function(){ copyText($("rp").textContent); };
+}
+
+/* ---------- boot ---------- */
+D.init().then(function(mode){
+  if(mode==="none"){ $("conn").className="conn bad"; $("conn").lastChild.textContent="Not connected"; $("picks").innerHTML=""; $("out").innerHTML='<div class="msg err">'+esc(D.explain({code:"no_connection"}))+'</div>'; return; }
+  $("conn").lastChild.textContent=mode==="claude"?"Loading through Ekyam Dev…":"Loading from Ekyam…";
+  var h=location.hash.slice(1);
+  var picks=loadPicks();
+  if(h) trace(h);
+  else picks.then(function(){ if(PICKS[0]&&!location.hash) go(PICKS[0].po); else if(!PICKS.length) $("out").innerHTML='<div class="loading">Type a DoorDash PO number above.</div>'; });
+});
+})();
+</script>

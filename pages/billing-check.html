@@ -1,0 +1,858 @@
+<title>Minted Billing Check</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="minted-endpoint" content="">
+<meta name="minted-page" content="billing-check">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: a month's reconciliation. Verdict first, then a day-by-day strip showing where the tracker stops, then the rows behind each bucket. */
+:root{
+  --bg:#f5f8fc; --card:#ffffff; --line:#e3e8f0; --line2:#eef2f7;
+  --ink:#16202e; --ink2:#3b4656; --mut:#5d6878;
+  --blu:#2f6fed; --blu-bg:#eaf1fe; --navy:#111827;
+  --grn:#127a57; --grn-bg:#e3f4ec; --grn-m:#5fae8a; --amb:#a8580a; --amb-bg:#fdf2dc; --amb-m:#e0a030; --red:#c62828; --red-bg:#fdeaea;
+  --gry-bg:#eef1f5; --gry-m:#c3cbd6;
+  --display:'Inter Tight','Inter',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --body:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:70;background:#fff}
+button,input{font:inherit;color:inherit}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:60;background:#fff;border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:14px;padding-block:10px;flex-wrap:wrap}
+.logo{height:26px;display:block}
+.who{font-size:12.5px;color:var(--mut);padding-left:14px;border-left:1px solid var(--line);font-weight:500}
+.who b{color:var(--ink);font-weight:600}
+.sp{flex:1}
+.conn{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--mut);font-weight:500}
+.conn i{width:8px;height:8px;border-radius:50%;background:#b8c1cc;display:inline-block}
+.conn.ok i{background:var(--grn)} .conn.bad i{background:var(--red)}
+.btn{border:1px solid #d5dbe4;background:#fff;border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn:hover{border-color:#9aa6b5}
+.btn:focus-visible,.tab:focus-visible{outline:2px solid var(--blu);outline-offset:2px}
+.btn.pri{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.pri:hover{background:var(--blu);border-color:var(--blu)}
+.btn.sm{padding:4px 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:default}
+
+main{padding-block:22px 40px}
+.eyebrow{font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--blu);font-weight:700}
+.titlerow{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin:4px 0 16px}
+h1{font:700 24px/1.2 var(--display);margin:0;letter-spacing:-.2px;text-wrap:balance}
+.month{display:inline-flex;align-items:center;gap:6px}
+.month input{border:1px solid #d5dbe4;border-radius:9px;padding:6px 9px;background:#fff;font-size:13px}
+
+.verdict{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:16px}
+.verdict .big{font:700 22px/1.3 var(--display);letter-spacing:-.2px;text-wrap:balance;margin:0 0 4px}
+.verdict .big em{font-style:normal;color:var(--amb)}
+.verdict .big strong{color:var(--grn)}
+.verdict .sub{color:var(--ink2);font-size:13.5px;margin:0 0 14px}
+.recon{display:flex;height:22px;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.recon span{display:block;height:100%}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--ink2);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.legend b{font-variant-numeric:tabular-nums}
+.money{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:16px}
+.money div{border-top:1px solid var(--line);padding-top:10px}
+.money span{display:block;font-size:11.5px;color:var(--mut);font-weight:600}
+.money b{font:700 19px/1.3 var(--display);font-variant-numeric:tabular-nums}
+.money small{display:block;font-size:11.5px;color:var(--mut)}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;min-width:0}
+.card-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.card-h h2{font:600 15px/1.3 var(--display);margin:0}
+.card-h .sub{font-size:12px;color:var(--mut)}
+.card-b{padding:14px 16px}
+.chart svg{display:block;width:100%;height:auto}
+.chart{position:relative}
+.ctip{position:absolute;z-index:20;pointer-events:none;background:#111827;color:#fff;border-radius:8px;padding:8px 11px;font-size:12px;line-height:1.45;max-width:280px;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+.ctip[hidden]{display:none}
+.ctip b{display:block;font-size:12.5px}
+.chart [data-tip]{cursor:pointer}
+.chart [data-tip]:hover{opacity:.85}
+
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto}
+.tab{background:none;border:0;border-bottom:2px solid transparent;padding:11px 12px 9px;font-size:13.5px;font-weight:600;color:var(--mut);cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--blu);border-bottom-color:var(--blu)}
+.tab .n{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;background:var(--gry-bg);color:var(--ink2);border-radius:999px;padding:0 7px}
+.tab .n.amb{background:var(--amb-bg);color:var(--amb)} .tab .n.red{background:var(--red-bg);color:var(--red)} .tab .n.grn{background:var(--grn-bg);color:var(--grn)}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line2)}
+.bar .hint{font-size:12.5px;color:var(--ink2)}
+
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11.5px;font-weight:600;color:var(--ink2);padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;background:#fbfcfe}
+td{padding:8px 10px;border-bottom:1px solid var(--line2);font-size:13px;white-space:nowrap;vertical-align:middle}
+th:first-child,td:first-child{padding-left:16px} th:last-child,td:last-child{padding-right:16px}
+tbody tr:hover td{background:#f6f9fe}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:12px}
+.mut{color:var(--mut)} .sm{font-size:11.5px}
+.ticks{display:inline-flex;gap:3px}
+.ticks i{font-style:normal;font-size:10.5px;font-weight:700;padding:1px 5px;border-radius:5px;background:var(--grn-bg);color:var(--grn)}
+.ticks i.x{background:var(--red-bg);color:var(--red)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-grn{background:var(--grn-bg);color:var(--grn)} .p-amb{background:var(--amb-bg);color:var(--amb)} .p-red{background:var(--red-bg);color:var(--red)} .p-gry{background:var(--gry-bg);color:var(--mut)}
+
+.diff{border:1px solid #f2b8b8;border-left:4px solid var(--red);border-radius:10px;margin:14px 16px;background:#fff}
+.diff-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--line2)}
+.diff-h b{font-family:var(--mono)}
+.diff table td,.diff table th{font-size:12.5px}
+.diff .impact{padding:10px 14px;font-size:12.5px;color:#7d1d1d;background:var(--red-bg);border-radius:0 0 9px 0}
+
+.pager{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:10px 16px;font-size:12.5px;color:var(--mut)}
+.msg{border-radius:10px;padding:11px 14px;font-size:13px;line-height:1.5;margin:12px 16px}
+.msg.err{background:var(--red-bg);color:#7d1d1d;border:1px solid #f3c1c1}
+.msg.info{background:var(--blu-bg);color:#1c3d7a;border:1px solid #cddcfa}
+.msg.ok{background:var(--grn-bg);color:#0f5a40;border:1px solid #bfe3d1}
+.loading{padding:28px 16px;color:var(--mut)}
+.toast{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:max(20px,env(safe-area-inset-bottom,0px));background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:200;max-width:380px}
+.toast[hidden]{display:none}
+.foot{font-size:11.5px;color:var(--mut);padding:8px 0 0;line-height:1.6}
+.foot ul{margin:4px 0 0;padding-left:18px}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <img class="logo" alt="Ekyam" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjM2IiB2aWV3Qm94PSIwIDAgMTI4IDM2IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBjbGlwLXBhdGg9InVybCgjY2xpcDBfMTU0MDhfMTE4NTkpIj4KPHBhdGggZD0iTTE1LjIxMTcgMzIuMjEyM0MxNS4zNDYzIDMyLjE1ODIgMTUuNDkzMSAzMi4yNTcxIDE1LjQ5MzEgMzIuNDAyVjM1LjYzN0MxNS40OTMxIDM1Ljc4MiAxNS4zNDYzIDM1Ljg4MTIgMTUuMjExNyAzNS44MjcxTDExLjE4MzIgMzQuMjA5NEMxMS4wMTE5IDM0LjE0MDUgMTEuMDExOSAzMy44OTgzIDExLjE4MzIgMzMuODI5NkwxNS4yMTE3IDMyLjIxMjNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxOTM2IDMwLjAxMjFDMTAuMDUzNyAyOS45NjAxIDEwLjE5ODIgMzAuMDU5IDEwLjE5ODMgMzAuMjAyOFYzMy4zMDg4QzEwLjE5ODIgMzMuNDUyNiAxMC4wNTM3IDMzLjU1MTUgOS45MTkzNiAzMy40OTk1TDUuOTA4MTggMzEuOTQ2NUM1LjczMzczIDMxLjg3OTEgNS43MzM3MyAzMS42MzI1IDUuOTA4MTggMzEuNTY1MUw5LjkxOTM2IDMwLjAxMjFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xMC43MTA5IDMwLjIwMjhDMTAuNzExIDMwLjA1OSAxMC44NTU2IDI5Ljk2MDEgMTAuOTg5OSAzMC4wMTIxTDE1LjAwMTEgMzEuNTY1MUMxNS4xNzU1IDMxLjYzMjUgMTUuMTc1NSAzMS44NzkxIDE1LjAwMTEgMzEuOTQ2NUwxMC45ODk5IDMzLjQ5OTVDMTAuODU1NSAzMy41NTE1IDEwLjcxMSAzMy40NTI2IDEwLjcxMDkgMzMuMzA4OFYzMC4yMDI4WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjAuNTA5MiAzMC4wMTE5QzIwLjY0MzUgMjkuOTYgMjAuNzg4MSAzMC4wNTg5IDIwLjc4ODEgMzAuMjAyN1YzMy4zMDg3QzIwLjc4ODEgMzMuNDUyNCAyMC42NDM1IDMzLjU1MTQgMjAuNTA5MiAzMy40OTk0TDE2LjQ5OCAzMS45NDY0QzE2LjMyMzYgMzEuODc4OSAxNi4zMjM2IDMxLjYzMjQgMTYuNDk4IDMxLjU2NUwyMC41MDkyIDMwLjAxMTlaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yMS4zMDA4IDMwLjIwMjdDMjEuMzAwOCAzMC4wNTg5IDIxLjQ0NTQgMjkuOTYgMjEuNTc5NyAzMC4wMTE5TDI1LjU5MDkgMzEuNTY1QzI1Ljc2NTQgMzEuNjMyNCAyNS43NjU0IDMxLjg3ODkgMjUuNTkwOSAzMS45NDY0TDIxLjU3OTcgMzMuNDk5NEMyMS40NDU0IDMzLjU1MTQgMjEuMzAwOCAzMy40NTI0IDIxLjMwMDggMzMuMzA4N1YzMC4yMDI3WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNNC42MTk4NiAyNy42ODQ4QzQuNzU0NTIgMjcuNjMwOSA0LjkwMTI3IDI3LjcyOTkgNC45MDEzNCAyNy44NzQ2VjMxLjEwOThDNC45MDEzNCAzMS4yNTQ4IDQuNzU0NTQgMzEuMzUzNyA0LjYxOTg2IDMxLjI5OThMMC41OTEzOTYgMjkuNjgyQzAuNDIwMDU1IDI5LjYxMzMgMC40MjAwNTUgMjkuMzcxMSAwLjU5MTM5NiAyOS4zMDI0TDQuNjE5ODYgMjcuNjg0OFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTUuNDE0MDYgMjcuODc0NkM1LjQxNDEzIDI3LjcyOTkgNS41NjA4NiAyNy42MzA5IDUuNjk1NTQgMjcuNjg0OEw5LjcyMzk5IDI5LjMwMjRDOS44OTUzMyAyOS4zNzExIDkuODk1MzMgMjkuNjEzMyA5LjcyMzk5IDI5LjY4Mkw1LjY5NTU0IDMxLjI5OThDNS41NjA4MyAzMS4zNTM3IDUuNDE0MDYgMzEuMjU0OCA1LjQxNDA2IDMxLjEwOThWMjcuODc0NloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE1LjIxMTcgMjcuNjg0OEMxNS4zNDYzIDI3LjYzMDkgMTUuNDkzMSAyNy43Mjk5IDE1LjQ5MzEgMjcuODc0NlYzMS4xMDk4QzE1LjQ5MzEgMzEuMjU0OCAxNS4zNDYzIDMxLjM1MzcgMTUuMjExNyAzMS4yOTk4TDExLjE4MzIgMjkuNjgyQzExLjAxMTkgMjkuNjEzMyAxMS4wMTE5IDI5LjM3MTEgMTEuMTgzMiAyOS4zMDI0TDE1LjIxMTcgMjcuNjg0OFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE2LjAwMzkgMjcuODc0NkMxNi4wMDQgMjcuNzI5OSAxNi4xNTA3IDI3LjYzMDkgMTYuMjg1NCAyNy42ODQ4TDIwLjMxMzggMjkuMzAyNEMyMC40ODUyIDI5LjM3MTEgMjAuNDg1MiAyOS42MTMzIDIwLjMxMzggMjkuNjgyTDE2LjI4NTQgMzEuMjk5OEMxNi4xNTA3IDMxLjM1MzcgMTYuMDAzOSAzMS4yNTQ4IDE2LjAwMzkgMzEuMTA5OFYyNy44NzQ2WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjUuODAxNSAyNy42ODQ4QzI1LjkzNjIgMjcuNjMwOSAyNi4wODI4IDI3LjcyOTkgMjYuMDgzMSAyNy44NzQ2VjMxLjEwOThDMjYuMDgzMSAzMS4yNTQ4IDI1LjkzNjIgMzEuMzUzNyAyNS44MDE1IDMxLjI5OThMMjEuNzczIDI5LjY4MkMyMS42MDE3IDI5LjYxMzMgMjEuNjAxNyAyOS4zNzExIDIxLjc3MyAyOS4zMDI0TDI1LjgwMTUgMjcuNjg0OFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTI2LjU5NzcgMjcuODc0NkMyNi41OTc3IDI3LjcyOTkgMjYuNzQ0NSAyNy42MzA5IDI2Ljg3OTIgMjcuNjg0OEwzMC45MDc2IDI5LjMwMjRDMzEuMDc4OCAyOS4zNzExIDMxLjA3ODggMjkuNjEzMyAzMC45MDc2IDI5LjY4MkwyNi44NzkyIDMxLjI5OThDMjYuNzQ0NSAzMS4zNTM3IDI2LjU5NzcgMzEuMjU0OCAyNi41OTc3IDMxLjEwOThWMjcuODc0NloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTAuMTE5MTQxIDI1LjU0MzJDMC4xMTkyMTIgMjUuMzk4MiAwLjI2NTk1MSAyNS4yOTkzIDAuNDAwNjI0IDI1LjM1MzRMNC40MjkwOSAyNi45NzA4QzQuNjAwNDEgMjcuMDM5NyA0LjYwMDQxIDI3LjI4MTkgNC40MjkwOSAyNy4zNTA2TDAuNDAwNjI0IDI4Ljk2ODJDMC4yNjU5MTggMjkuMDIyMyAwLjExOTE0MSAyOC45MjMxIDAuMTE5MTQxIDI4Ljc3ODJWMjUuNTQzMloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTkuOTE2NzIgMjUuMzUzM0MxMC4wNTE0IDI1LjI5OTEgMTAuMTk4MSAyNS4zOTgxIDEwLjE5ODIgMjUuNTQzVjI4Ljc3OEMxMC4xOTgyIDI4LjkyMyAxMC4wNTE0IDI5LjAyMjIgOS45MTY3MiAyOC45NjhMNS44ODgyNiAyNy4zNTA0QzUuNzE2OTQgMjcuMjgxOCA1LjcxNjk0IDI3LjAzOTUgNS44ODgyNiAyNi45NzA2TDkuOTE2NzIgMjUuMzUzM1oiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTEwLjcxMDkgMjUuNTQzMkMxMC43MTEgMjUuMzk4MiAxMC44NTc4IDI1LjI5OTMgMTAuOTkyNCAyNS4zNTM0TDE1LjAyMDkgMjYuOTcwOEMxNS4xOTIyIDI3LjAzOTcgMTUuMTkyMiAyNy4yODE5IDE1LjAyMDkgMjcuMzUwNkwxMC45OTI0IDI4Ljk2ODJDMTAuODU3NyAyOS4wMjIzIDEwLjcxMDkgMjguOTIzMSAxMC43MTA5IDI4Ljc3ODJWMjUuNTQzMloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTIwLjUwNjYgMjUuMzUzM0MyMC42NDEyIDI1LjI5OTEgMjAuNzg4IDI1LjM5ODEgMjAuNzg4MSAyNS41NDNWMjguNzc4QzIwLjc4ODEgMjguOTIzIDIwLjY0MTMgMjkuMDIyMiAyMC41MDY2IDI4Ljk2OEwxNi40NzgxIDI3LjM1MDRDMTYuMzA2OCAyNy4yODE4IDE2LjMwNjggMjcuMDM5NSAxNi40NzgxIDI2Ljk3MDZMMjAuNTA2NiAyNS4zNTMzWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjEuMzAwOCAyNS41NDNDMjEuMzAwOSAyNS4zOTgxIDIxLjQ0NzYgMjUuMjk5MSAyMS41ODIzIDI1LjM1MzNMMjUuNjEwNyAyNi45NzA2QzI1Ljc4MjEgMjcuMDM5NSAyNS43ODIxIDI3LjI4MTggMjUuNjEwNyAyNy4zNTA0TDIxLjU4MjMgMjguOTY4QzIxLjQ0NzYgMjkuMDIyMiAyMS4zMDA4IDI4LjkyMyAyMS4zMDA4IDI4Ljc3OFYyNS41NDNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0zMS4wOTg0IDI1LjM1MzRDMzEuMjMzMSAyNS4yOTkzIDMxLjM3OTcgMjUuMzk4MiAzMS4zNzk3IDI1LjU0MzJWMjguNzc4MkMzMS4zNzk3IDI4LjkyMzEgMzEuMjMzMSAyOS4wMjIzIDMxLjA5ODQgMjguOTY4MkwyNy4wNyAyNy4zNTA2QzI2Ljg5ODUgMjcuMjgxOSAyNi44OTg1IDI3LjAzOTcgMjcuMDcgMjYuOTcwOEwzMS4wOTg0IDI1LjM1MzRaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik00LjYyMjQ5IDIzLjE1NDJDNC43NTY3OSAyMy4xMDIyIDQuOTAxMzQgMjMuMjAxMSA0LjkwMTQxIDIzLjM0NDhWMjYuNDUxQzQuOTAxMzYgMjYuNTk0OCA0Ljc1Njc5IDI2LjY5MzUgNC42MjI0OSAyNi42NDE1TDAuNjExMjkgMjUuMDg4N0MwLjQzNjg2NCAyNS4wMjEgMC40MzY4NTkgMjQuNzc0OCAwLjYxMTI5IDI0LjcwN0w0LjYyMjQ5IDIzLjE1NDJaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik01LjQxNDA2IDIzLjM0NUM1LjQxNDExIDIzLjIwMTIgNS41NTg2NiAyMy4xMDIzIDUuNjkyOTYgMjMuMTU0M0w5LjcwNDE2IDI0LjcwNzJDOS44Nzg1OSAyNC43NzQ5IDkuODc4NTkgMjUuMDIxMiA5LjcwNDE2IDI1LjA4ODlMNS42OTI5NiAyNi42NDE2QzUuNTU4NjYgMjYuNjkzNiA1LjQxNDExIDI2LjU5NDkgNS40MTQwNiAyNi40NTExVjIzLjM0NVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE2LjAwMzkgMjMuMzQ0OEMxNi4wMDQgMjMuMjAxMSAxNi4xNDg1IDIzLjEwMjIgMTYuMjgyOCAyMy4xNTQyTDIwLjI5NCAyNC43MDdDMjAuNDY4NCAyNC43NzQ4IDIwLjQ2ODQgMjUuMDIxIDIwLjI5NCAyNS4wODg3TDE2LjI4MjggMjYuNjQxNUMxNi4xNDg1IDI2LjY5MzUgMTYuMDAzOSAyNi41OTQ4IDE2LjAwMzkgMjYuNDUxVjIzLjM0NDhaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNS44MDQyIDIzLjE1NDNDMjUuOTM4NCAyMy4xMDIzIDI2LjA4MjkgMjMuMjAxMiAyNi4wODMxIDIzLjM0NVYyNi40NTExQzI2LjA4MjkgMjYuNTk0OSAyNS45Mzg0IDI2LjY5MzYgMjUuODA0MiAyNi42NDE2TDIxLjc5MjkgMjUuMDg4OUMyMS42MTg1IDI1LjAyMTIgMjEuNjE4NSAyNC43NzQ5IDIxLjc5MjkgMjQuNzA3MkwyNS44MDQyIDIzLjE1NDNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDIzLjM0NTFDMjYuNTk3NyAyMy4yMDEzIDI2Ljc0MjQgMjMuMTAyNSAyNi44NzY2IDIzLjE1NDRMMzAuODg3OCAyNC43MDczQzMxLjA2MjEgMjQuNzc1IDMxLjA2MjEgMjUuMDIxMyAzMC44ODc4IDI1LjA4OUwyNi44NzY2IDI2LjY0MThDMjYuNzQyNCAyNi42OTM3IDI2LjU5NzcgMjYuNTk1IDI2LjU5NzcgMjYuNDUxM1YyMy4zNDUxWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMC4xMTkxNDEgMjEuMDE2N0MwLjExOTIxMiAyMC44NzE4IDAuMjY1OTUxIDIwLjc3MjkgMC40MDA2MjQgMjAuODI3TDQuNDI5MDkgMjIuNDQ0NEM0LjYwMDQxIDIyLjUxMzIgNC42MDA0MSAyMi43NTU0IDQuNDI5MDkgMjIuODI0MUwwLjQwMDYyNCAyNC40NDE4QzAuMjY1OTE4IDI0LjQ5NTkgMC4xMTkxNDEgMjQuMzk2OCAwLjExOTE0MSAyNC4yNTE4VjIxLjAxNjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDIwLjgyNzFDMTAuMDUxNCAyMC43NzMgMTAuMTk4MSAyMC44NzIgMTAuMTk4MiAyMS4wMTY5VjI0LjI1MTlDMTAuMTk4MiAyNC4zOTY5IDEwLjA1MTQgMjQuNDk2MSA5LjkxNjcyIDI0LjQ0MTlMNS44ODgyNiAyMi44MjQzQzUuNzE2OTQgMjIuNzU1NSA1LjcxNjk0IDIyLjUxMzMgNS44ODgyNiAyMi40NDQ1TDkuOTE2NzIgMjAuODI3MVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTIwLjUwNjYgMjAuODI3MUMyMC42NDEyIDIwLjc3MyAyMC43ODggMjAuODcyIDIwLjc4ODEgMjEuMDE2OVYyNC4yNTE5QzIwLjc4ODEgMjQuMzk2OSAyMC42NDEzIDI0LjQ5NjEgMjAuNTA2NiAyNC40NDE5TDE2LjQ3ODEgMjIuODI0M0MxNi4zMDY4IDIyLjc1NTUgMTYuMzA2OCAyMi41MTMzIDE2LjQ3ODEgMjIuNDQ0NUwyMC41MDY2IDIwLjgyNzFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yMS4zMDA4IDIxLjAxNjlDMjEuMzAwOSAyMC44NzIgMjEuNDQ3NiAyMC43NzMgMjEuNTgyMyAyMC44MjcxTDI1LjYxMDcgMjIuNDQ0NUMyNS43ODIxIDIyLjUxMzMgMjUuNzgyMSAyMi43NTU1IDI1LjYxMDcgMjIuODI0M0wyMS41ODIzIDI0LjQ0MTlDMjEuNDQ3NiAyNC40OTYxIDIxLjMwMDggMjQuMzk2OSAyMS4zMDA4IDI0LjI1MTlWMjEuMDE2OVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTMxLjA5ODQgMjAuODI3QzMxLjIzMzEgMjAuNzcyOSAzMS4zNzk3IDIwLjg3MTggMzEuMzc5NyAyMS4wMTY3VjI0LjI1MThDMzEuMzc5NyAyNC4zOTY4IDMxLjIzMzEgMjQuNDk1OSAzMS4wOTg0IDI0LjQ0MThMMjcuMDcgMjIuODI0MUMyNi44OTg1IDIyLjc1NTQgMjYuODk4NSAyMi41MTMyIDI3LjA3IDIyLjQ0NDRMMzEuMDk4NCAyMC44MjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik00LjYxOTg2IDE4LjQ5NTVDNC43NTQ1MiAxOC40NDE0IDQuOTAxMjcgMTguNTQwMyA0LjkwMTM0IDE4LjY4NTJWMjEuOTIwM0M0LjkwMTM0IDIyLjA2NTIgNC43NTQ1NCAyMi4xNjQ0IDQuNjE5ODYgMjIuMTEwM0wwLjU5MTM5NiAyMC40OTI2QzAuNDIwMDU1IDIwLjQyMzggMC40MjAwNTUgMjAuMTgxNyAwLjU5MTM5NiAyMC4xMTI5TDQuNjE5ODYgMTguNDk1NVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTI1LjgwMTUgMTguNDk1NkMyNS45MzYyIDE4LjQ0MTUgMjYuMDgyOCAxOC41NDA0IDI2LjA4MzEgMTguNjg1M1YyMS45MjA0QzI2LjA4MzEgMjIuMDY1MyAyNS45MzYyIDIyLjE2NDUgMjUuODAxNSAyMi4xMTA0TDIxLjc3MyAyMC40OTI3QzIxLjYwMTcgMjAuNDIzOSAyMS42MDE3IDIwLjE4MTggMjEuNzczIDIwLjExM0wyNS44MDE1IDE4LjQ5NTZaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDE4LjY4NTRDMjYuNTk3NyAxOC41NDA1IDI2Ljc0NDUgMTguNDQxNiAyNi44NzkyIDE4LjQ5NTdMMzAuOTA3NiAyMC4xMTMxQzMxLjA3ODggMjAuMTgxOSAzMS4wNzg4IDIwLjQyNDEgMzAuOTA3NiAyMC40OTI4TDI2Ljg3OTIgMjIuMTEwNUMyNi43NDQ1IDIyLjE2NDYgMjYuNTk3NyAyMi4wNjU1IDI2LjU5NzcgMjEuOTIwNVYxOC42ODU0WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMC4xMTkxNDEgMTYuNDg1NUMwLjExOTE5OCAxNi4zNDE3IDAuMjYzNzUyIDE2LjI0MjggMC4zOTgwNTkgMTYuMjk0OEw0LjQwOTI0IDE3Ljg0NzdDNC41ODM2OSAxNy45MTUzIDQuNTgzNjkgMTguMTYxNyA0LjQwOTI0IDE4LjIyOTNMMC4zOTgwNTkgMTkuNzgyMkMwLjI2Mzc0NSAxOS44MzQyIDAuMTE5MTg3IDE5LjczNTQgMC4xMTkxNDEgMTkuNTkxNVYxNi40ODU1WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMzEuMDk4OSAxNi4yOTQ4QzMxLjIzMzQgMTYuMjQyOCAzMS4zNzc5IDE2LjM0MTcgMzEuMzc3OSAxNi40ODU1VjE5LjU5MTVDMzEuMzc3OSAxOS43MzU0IDMxLjIzMzQgMTkuODM0MiAzMS4wOTg5IDE5Ljc4MjJMMjcuMDg4IDE4LjIyOTNDMjYuOTEzNCAxOC4xNjE3IDI2LjkxMzQgMTcuOTE1MyAyNy4wODggMTcuODQ3N0wzMS4wOTg5IDE2LjI5NDhaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik00LjYxOTg2IDEzLjk2ODFDNC43NTQ1MiAxMy45MTQgNC45MDEyNyAxNC4wMTMgNC45MDEzNCAxNC4xNTc5VjE3LjM5MjlDNC45MDEzNCAxNy41Mzc5IDQuNzU0NTQgMTcuNjM3IDQuNjE5ODYgMTcuNTgyOUwwLjU5MTM5NiAxNS45NjUzQzAuNDIwMDU1IDE1Ljg5NjUgMC40MjAwNTUgMTUuNjU0MyAwLjU5MTM5NiAxNS41ODU1TDQuNjE5ODYgMTMuOTY4MVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTUuNDE0MDYgMTQuMTU3OUM1LjQxNDEzIDE0LjAxMyA1LjU2MDg2IDEzLjkxNCA1LjY5NTU0IDEzLjk2ODFMOS43MjM5OSAxNS41ODU1QzkuODk1MzMgMTUuNjU0MyA5Ljg5NTMzIDE1Ljg5NjUgOS43MjM5OSAxNS45NjUzTDUuNjk1NTQgMTcuNTgyOUM1LjU2MDgzIDE3LjYzNyA1LjQxNDA2IDE3LjUzNzkgNS40MTQwNiAxNy4zOTI5VjE0LjE1NzlaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDE0LjE1NzlDMjYuNTk3NyAxNC4wMTMgMjYuNzQ0NSAxMy45MTQgMjYuODc5MiAxMy45NjgxTDMwLjkwNzYgMTUuNTg1NUMzMS4wNzg4IDE1LjY1NDMgMzEuMDc4OCAxNS44OTY1IDMwLjkwNzYgMTUuOTY1M0wyNi44NzkyIDE3LjU4MjlDMjYuNzQ0NSAxNy42MzcgMjYuNTk3NyAxNy41Mzc5IDI2LjU5NzcgMTcuMzkyOVYxNC4xNTc5WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMC4xMTkxNDEgMTEuODI2M0MwLjExOTIxMiAxMS42ODE0IDAuMjY1OTUxIDExLjU4MjUgMC40MDA2MjQgMTEuNjM2Nkw0LjQyOTA5IDEzLjI1NEM0LjYwMDQxIDEzLjMyMjggNC42MDA0MSAxMy41NjQ5IDQuNDI5MDkgMTMuNjMzN0wwLjQwMDYyNCAxNS4yNTE0QzAuMjY1OTE4IDE1LjMwNTUgMC4xMTkxNDEgMTUuMjA2NCAwLjExOTE0MSAxNS4wNjE0VjExLjgyNjNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDExLjYzNjdDMTAuMDUxNCAxMS41ODI2IDEwLjE5ODEgMTEuNjgxNiAxMC4xOTgyIDExLjgyNjRWMTUuMDYxNUMxMC4xOTgyIDE1LjIwNjUgMTAuMDUxNCAxNS4zMDU2IDkuOTE2NzIgMTUuMjUxNUw1Ljg4ODI2IDEzLjYzMzlDNS43MTY5NCAxMy41NjUgNS43MTY5NCAxMy4zMjI5IDUuODg4MjYgMTMuMjU0MUw5LjkxNjcyIDExLjYzNjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xMC43MTA5IDExLjgyNjNDMTAuNzExIDExLjY4MTQgMTAuODU3OCAxMS41ODI1IDEwLjk5MjQgMTEuNjM2NkwxNS4wMjA5IDEzLjI1NEMxNS4xOTIyIDEzLjMyMjggMTUuMTkyMiAxMy41NjQ5IDE1LjAyMDkgMTMuNjMzN0wxMC45OTI0IDE1LjI1MTRDMTAuODU3NyAxNS4zMDU1IDEwLjcxMDkgMTUuMjA2NCAxMC43MTA5IDE1LjA2MTRWMTEuODI2M1oiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTIxLjMwMDggMTEuODI2NEMyMS4zMDA5IDExLjY4MTYgMjEuNDQ3NiAxMS41ODI2IDIxLjU4MjMgMTEuNjM2N0wyNS42MTA3IDEzLjI1NDFDMjUuNzgyMSAxMy4zMjI5IDI1Ljc4MjEgMTMuNTY1IDI1LjYxMDcgMTMuNjMzOUwyMS41ODIzIDE1LjI1MTVDMjEuNDQ3NiAxNS4zMDU2IDIxLjMwMDggMTUuMjA2NSAyMS4zMDA4IDE1LjA2MTVWMTEuODI2NFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTMxLjA5ODQgMTEuNjM2NkMzMS4yMzMxIDExLjU4MjUgMzEuMzc5NyAxMS42ODE0IDMxLjM3OTcgMTEuODI2M1YxNS4wNjE0QzMxLjM3OTcgMTUuMjA2NCAzMS4yMzMxIDE1LjMwNTUgMzEuMDk4NCAxNS4yNTE0TDI3LjA3IDEzLjYzMzdDMjYuODk4NSAxMy41NjQ5IDI2Ljg5ODUgMTMuMzIyOCAyNy4wNyAxMy4yNTRMMzEuMDk4NCAxMS42MzY2WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNNC42MTk4NiA5LjMwMjU4QzQuNzU0NTIgOS4yNDg1MSA0LjkwMTI3IDkuMzQ3NDMgNC45MDEzNCA5LjQ5MjMzVjEyLjcyNzRDNC45MDEzNCAxMi44NzI0IDQuNzU0NTQgMTIuOTcxNSA0LjYxOTg2IDEyLjkxNzRMMC41OTEzOTYgMTEuMjk5N0MwLjQyMDA1NSAxMS4yMzA5IDAuNDIwMDU1IDEwLjk4ODggMC41OTEzOTYgMTAuOTJMNC42MTk4NiA5LjMwMjU4WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNNS40MTQwNiA5LjQ5MjQ2QzUuNDE0MTMgOS4zNDc1NSA1LjU2MDg2IDkuMjQ4NjMgNS42OTU1NCA5LjMwMjcxTDkuNzIzOTkgMTAuOTIwMUM5Ljg5NTMzIDEwLjk4ODkgOS44OTUzMyAxMS4yMzExIDkuNzIzOTkgMTEuMjk5OEw1LjY5NTU0IDEyLjkxNzVDNS41NjA4MyAxMi45NzE2IDUuNDE0MDYgMTIuODcyNSA1LjQxNDA2IDEyLjcyNzVWOS40OTI0NloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE1LjIxMTcgOS4zMDI1OEMxNS4zNDYzIDkuMjQ4NTEgMTUuNDkzMSA5LjM0NzQzIDE1LjQ5MzEgOS40OTIzM1YxMi43Mjc0QzE1LjQ5MzEgMTIuODcyNCAxNS4zNDYzIDEyLjk3MTUgMTUuMjExNyAxMi45MTc0TDExLjE4MzIgMTEuMjk5N0MxMS4wMTE5IDExLjIzMDkgMTEuMDExOSAxMC45ODg4IDExLjE4MzIgMTAuOTJMMTUuMjExNyA5LjMwMjU4WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjUuODAxNSA5LjMwMjcxQzI1LjkzNjIgOS4yNDg2MyAyNi4wODI4IDkuMzQ3NTUgMjYuMDgzMSA5LjQ5MjQ2VjEyLjcyNzVDMjYuMDgzMSAxMi44NzI1IDI1LjkzNjIgMTIuOTcxNiAyNS44MDE1IDEyLjkxNzVMMjEuNzczIDExLjI5OThDMjEuNjAxNyAxMS4yMzExIDIxLjYwMTcgMTAuOTg4OSAyMS43NzMgMTAuOTIwMUwyNS44MDE1IDkuMzAyNzFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDkuNDkyNThDMjYuNTk3NyA5LjM0NzY3IDI2Ljc0NDUgOS4yNDg3NiAyNi44NzkyIDkuMzAyODNMMzAuOTA3NiAxMC45MjAzQzMxLjA3ODggMTAuOTg5IDMxLjA3ODggMTEuMjMxMiAzMC45MDc2IDExLjNMMjYuODc5MiAxMi45MTc2QzI2Ljc0NDUgMTIuOTcxNyAyNi41OTc3IDEyLjg3MjYgMjYuNTk3NyAxMi43Mjc2VjkuNDkyNThaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0wLjExOTE0MSA3LjE2MTc3QzAuMTE5MjEyIDcuMDE2ODYgMC4yNjU5NTEgNi45MTc5NSAwLjQwMDYyNCA2Ljk3MjAyTDQuNDI5MDkgOC41ODk0NEM0LjYwMDQxIDguNjU4MjIgNC42MDA0MSA4LjkwMDM4IDQuNDI5MDkgOC45NjkxNkwwLjQwMDYyNCAxMC41ODY4QzAuMjY1OTE4IDEwLjY0MDkgMC4xMTkxNDEgMTAuNTQxOCAwLjExOTE0MSAxMC4zOTY4VjcuMTYxNzdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDYuOTcyMDJDMTAuMDUxNCA2LjkxNzk1IDEwLjE5ODEgNy4wMTY4NiAxMC4xOTgyIDcuMTYxNzdWMTAuMzk2OEMxMC4xOTgyIDEwLjU0MTggMTAuMDUxNCAxMC42NDA5IDkuOTE2NzIgMTAuNTg2OEw1Ljg4ODI2IDguOTY5MTZDNS43MTY5NCA4LjkwMDM4IDUuNzE2OTQgOC42NTgyMiA1Ljg4ODI2IDguNTg5NDRMOS45MTY3MiA2Ljk3MjAyWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMTAuNzEwOSA3LjE2MTc3QzEwLjcxMSA3LjAxNjg2IDEwLjg1NzggNi45MTc5NSAxMC45OTI0IDYuOTcyMDJMMTUuMDIwOSA4LjU4OTQ0QzE1LjE5MjIgOC42NTgyMiAxNS4xOTIyIDguOTAwMzggMTUuMDIwOSA4Ljk2OTE2TDEwLjk5MjQgMTAuNTg2OEMxMC44NTc3IDEwLjY0MDkgMTAuNzEwOSAxMC41NDE4IDEwLjcxMDkgMTAuMzk2OFY3LjE2MTc3WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjAuNTA2NiA2Ljk3MjAyQzIwLjY0MTIgNi45MTc5NSAyMC43ODggNy4wMTY4NiAyMC43ODgxIDcuMTYxNzdWMTAuMzk2OEMyMC43ODgxIDEwLjU0MTggMjAuNjQxMyAxMC42NDA5IDIwLjUwNjYgMTAuNTg2OEwxNi40NzgxIDguOTY5MTZDMTYuMzA2OCA4LjkwMDM4IDE2LjMwNjggOC42NTgyMiAxNi40NzgxIDguNTg5NDRMMjAuNTA2NiA2Ljk3MjAyWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjEuMzAwOCA3LjE2MTc3QzIxLjMwMDkgNy4wMTY4NiAyMS40NDc2IDYuOTE3OTUgMjEuNTgyMyA2Ljk3MjAyTDI1LjYxMDcgOC41ODk0NEMyNS43ODIxIDguNjU4MjIgMjUuNzgyMSA4LjkwMDM4IDI1LjYxMDcgOC45NjkxNkwyMS41ODIzIDEwLjU4NjhDMjEuNDQ3NiAxMC42NDA5IDIxLjMwMDggMTAuNTQxOCAyMS4zMDA4IDEwLjM5NjhWNy4xNjE3N1oiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTMxLjA5ODQgNi45NzIwMkMzMS4yMzMxIDYuOTE3OTUgMzEuMzc5NyA3LjAxNjg2IDMxLjM3OTcgNy4xNjE3N1YxMC4zOTY4QzMxLjM3OTcgMTAuNTQxOCAzMS4yMzMxIDEwLjY0MDkgMzEuMDk4NCAxMC41ODY4TDI3LjA3IDguOTY5MTZDMjYuODk4NSA4LjkwMDM4IDI2Ljg5ODUgOC42NTgyMiAyNy4wNyA4LjU4OTQ0TDMxLjA5ODQgNi45NzIwMloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTQuNjIyNDkgNC43NzEzNEM0Ljc1Njc5IDQuNzE5MzkgNC45MDEzNCA0LjgxODI0IDQuOTAxNDEgNC45NjIwMlY4LjA2ODEzQzQuOTAxMzYgOC4yMTE5MiA0Ljc1Njc5IDguMzEwNzYgNC42MjI0OSA4LjI1ODgxTDAuNjExMjkgNi43MDU4OEMwLjQzNjg2NCA2LjYzODI5IDAuNDM2ODU5IDYuMzkxODcgMC42MTEyOSA2LjMyNDI4TDQuNjIyNDkgNC43NzEzNFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTUuNDE0MDYgNC45NjIyN0M1LjQxNDExIDQuODE4NDggNS41NTg2NiA0LjcxOTY0IDUuNjkyOTYgNC43NzE1OUw5LjcwNDE2IDYuMzI0NTJDOS44Nzg1OSA2LjM5MjExIDkuODc4NTkgNi42Mzg1MyA5LjcwNDE2IDYuNzA2MTJMNS42OTI5NiA4LjI1OTA2QzUuNTU4NjYgOC4zMTEwMSA1LjQxNDExIDguMjEyMTYgNS40MTQwNiA4LjA2ODM4VjQuOTYyMjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xNS4yMTQzIDQuNzcxMzRDMTUuMzQ4NiA0LjcxOTM5IDE1LjQ5MzEgNC44MTgyNCAxNS40OTMyIDQuOTYyMDJWOC4wNjgxM0MxNS40OTMyIDguMjExOTIgMTUuMzQ4NiA4LjMxMDc2IDE1LjIxNDMgOC4yNTg4MUwxMS4yMDMxIDYuNzA1ODhDMTEuMDI4NyA2LjYzODI5IDExLjAyODcgNi4zOTE4NyAxMS4yMDMxIDYuMzI0MjhMMTUuMjE0MyA0Ljc3MTM0WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMTYuMDAzOSA0Ljk2MjAyQzE2LjAwNCA0LjgxODI0IDE2LjE0ODUgNC43MTkzOSAxNi4yODI4IDQuNzcxMzRMMjAuMjk0IDYuMzI0MjhDMjAuNDY4NCA2LjM5MTg3IDIwLjQ2ODQgNi42MzgyOSAyMC4yOTQgNi43MDU4OEwxNi4yODI4IDguMjU4ODFDMTYuMTQ4NSA4LjMxMDc2IDE2LjAwNCA4LjIxMTkyIDE2LjAwMzkgOC4wNjgxM1Y0Ljk2MjAyWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjUuODA0MiA0Ljc3MTU5QzI1LjkzODQgNC43MTk2NCAyNi4wODI5IDQuODE4NDggMjYuMDgzMSA0Ljk2MjI3VjguMDY4MzhDMjYuMDgyOSA4LjIxMjE2IDI1LjkzODQgOC4zMTEwMSAyNS44MDQyIDguMjU5MDZMMjEuNzkyOSA2LjcwNjEyQzIxLjYxODUgNi42Mzg1MyAyMS42MTg1IDYuMzkyMTEgMjEuNzkyOSA2LjMyNDUyTDI1LjgwNDIgNC43NzE1OVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTI2LjU5NzcgNC45NjIyN0MyNi41OTc3IDQuODE4NDggMjYuNzQyNCA0LjcxOTY0IDI2Ljg3NjYgNC43NzE1OUwzMC44ODc4IDYuMzI0NTJDMzEuMDYyMSA2LjM5MjExIDMxLjA2MjEgNi42Mzg1MyAzMC44ODc4IDYuNzA2MTJMMjYuODc2NiA4LjI1OTA2QzI2Ljc0MjQgOC4zMTEwMSAyNi41OTc3IDguMjEyMTYgMjYuNTk3NyA4LjA2ODM4VjQuOTYyMjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDIuNDQ2MjZDMTAuMDUxNCAyLjM5MjE5IDEwLjE5ODEgMi40OTExMyAxMC4xOTgyIDIuNjM2MDFWNS44NzExQzEwLjE5ODIgNi4wMTYwMyAxMC4wNTE0IDYuMTE1MTYgOS45MTY3MiA2LjA2MTA2TDUuODg4MjYgNC40NDM0MkM1LjcxNjk0IDQuMzc0NjIgNS43MTY5NCA0LjEzMjQ5IDUuODg4MjYgNC4wNjM2OEw5LjkxNjcyIDIuNDQ2MjZaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xMC43MTA5IDIuNjM1ODlDMTAuNzExIDIuNDkxMDEgMTAuODU3OCAyLjM5MjA3IDEwLjk5MjQgMi40NDYxNEwxNS4wMjA5IDQuMDYzNTZDMTUuMTkyMiA0LjEzMjM3IDE1LjE5MjIgNC4zNzQ1IDE1LjAyMDkgNC40NDMzTDEwLjk5MjQgNi4wNjA5NEMxMC44NTc3IDYuMTE1MDQgMTAuNzEwOSA2LjAxNTkxIDEwLjcxMDkgNS44NzA5OFYyLjYzNTg5WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjAuNTA2NiAyLjQ0NjI2QzIwLjY0MTIgMi4zOTIxOSAyMC43ODggMi40OTExMyAyMC43ODgxIDIuNjM2MDFWNS44NzExQzIwLjc4ODEgNi4wMTYwMyAyMC42NDEzIDYuMTE1MTYgMjAuNTA2NiA2LjA2MTA2TDE2LjQ3ODEgNC40NDM0MkMxNi4zMDY4IDQuMzc0NjIgMTYuMzA2OCA0LjEzMjQ5IDE2LjQ3ODEgNC4wNjM2OEwyMC41MDY2IDIuNDQ2MjZaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yMS4zMDA4IDIuNjM2MDFDMjEuMzAwOSAyLjQ5MTEzIDIxLjQ0NzYgMi4zOTIxOSAyMS41ODIzIDIuNDQ2MjZMMjUuNjEwNyA0LjA2MzY4QzI1Ljc4MjEgNC4xMzI0OSAyNS43ODIxIDQuMzc0NjIgMjUuNjEwNyA0LjQ0MzQyTDIxLjU4MjMgNi4wNjEwNkMyMS40NDc2IDYuMTE1MTYgMjEuMzAwOCA2LjAxNjAzIDIxLjMwMDggNS44NzExVjIuNjM2MDFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xNi4wMDM5IDAuMzAxOTA1QzE2LjAwNCAwLjE1NzAxMSAxNi4xNTA3IDAuMDU4MDgwOSAxNi4yODU0IDAuMTEyMTU0TDIwLjMxMzggMS43Mjk1N0MyMC40ODUyIDEuNzk4MzcgMjAuNDg1MiAyLjA0MDUxIDIwLjMxMzggMi4xMDkzMUwxNi4yODU0IDMuNzI2OTdDMTYuMTUwNyAzLjc4MTA0IDE2LjAwMzkgMy42ODE5MyAxNi4wMDM5IDMuNTM2OThWMC4zMDE5MDVaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik01MS4zMSA5LjU0NzRDNTEuMzEgOS42NzkwNyA1MS4yMDMyIDkuNzg1ODEgNTEuMDcxMiA5Ljc4NTgxSDQxLjA1NjFDNDAuOTI0MyA5Ljc4NTgxIDQwLjgxNzMgOS44OTI1NSA0MC44MTczIDEwLjAyNDJWMTYuMjI5QzQwLjgxNzMgMTYuMzYwNiA0MC45MjQzIDE2LjQ2NzQgNDEuMDU2MSAxNi40Njc0SDUwLjMzMjNDNTAuNDY0MSAxNi40Njc0IDUwLjU3MTEgMTYuNTc0MSA1MC41NzExIDE2LjcwNThWMTkuMDg1OUM1MC41NzExIDE5LjIxNzYgNTAuNDY0MSAxOS4zMjQzIDUwLjMzMjMgMTkuMzI0M0g0MS4wNTYxQzQwLjkyNDMgMTkuMzI0MyA0MC44MTczIDE5LjQzMTEgNDAuODE3MyAxOS41NjI3VjI1Ljk3NThDNDAuODE3MyAyNi4xMDc0IDQwLjkyNDMgMjYuMjE0MiA0MS4wNTYxIDI2LjIxNDJINTEuMTc0NkM1MS4zMDY0IDI2LjIxNDIgNTEuNDEzNCAyNi4zMjEgNTEuNDEzNCAyNi40NTI2VjI4Ljg0NzdDNTEuNDEzNCAyOC45NzkzIDUxLjMwNjQgMjkuMDg2MSA1MS4xNzQ2IDI5LjA4NjFIMzcuNzMxQzM3LjU5OTIgMjkuMDg2MSAzNy40OTIyIDI4Ljk3OTMgMzcuNDkyMiAyOC44NDc3VjcuMTUyMzVDMzcuNDkyMiA3LjAyMDY4IDM3LjU5OTIgNi45MTM5NCAzNy43MzEgNi45MTM5NEg1MS4wNzEyQzUxLjIwMzIgNi45MTM5NCA1MS4zMSA3LjAyMDY4IDUxLjMxIDcuMTUyMzVWOS41NDc0Wk01Ni41NzIzIDE3LjMyNjRDNTYuNTcyMyAxNy40MjczIDU2LjY1NCAxNy41MDkgNTYuNzU1IDE3LjUwOUM1Ni44MDggMTcuNTA5IDU2Ljg1ODIgMTcuNDg2MiA1Ni44OTMgMTcuNDQ2NEw2Ni4wMTggNi45OTU2OUM2Ni4wNjM0IDYuOTQzNzQgNjYuMTI5MSA2LjkxMzk0IDY2LjE5ODEgNi45MTM5NEg3Mi44MjM4QzcyLjkwOTcgNi45MTM5NCA3Mi45ODg4IDYuOTU5ODYgNzMuMDMxMyA3LjAzNDI0TDc4LjY2NzYgMTYuOTAwN0M3OC43MDM5IDE2Ljk2NCA3OC43NzEyIDE3LjAwMzEgNzguODQ0MyAxNy4wMDMxQzc4LjkxNzQgMTcuMDAzMSA3OC45ODUgMTYuOTYzOCA3OS4wMjEgMTYuOTAwM0w4NC42MjgyIDcuMDM0N0M4NC42NzA1IDYuOTYwMDUgODQuNzQ5NyA2LjkxMzk0IDg0LjgzNTcgNi45MTM5NEg4OC4wNzU2Qzg4LjI2MDcgNi45MTM5NCA4OC4zNzUzIDcuMTE0OTkgODguMjgxIDcuMjczOTJMODAuNTMzMSAyMC4zMjQ3QzgwLjUxMTIgMjAuMzYxNSA4MC40OTk3IDIwLjQwMzQgODAuNDk5NyAyMC40NDYyVjI4Ljg0NzdDODAuNDk5NyAyOC45NzkzIDgwLjM5MjcgMjkuMDg2MSA4MC4yNjA5IDI5LjA4NjFINzcuNDEzNEM3Ny4yODE2IDI5LjA4NjEgNzcuMTc0NiAyOC45NzkzIDc3LjE3NDYgMjguODQ3N1YyMC40NDYxQzc3LjE3NDYgMjAuNDAzNCA3Ny4xNjMxIDIwLjM2MTUgNzcuMTQxNCAyMC4zMjQ3TDY5Ljc3OTkgNy45MDIzN0M2OS42OTc2IDcuNzYzMjggNjkuNTAzNCA3Ljc0NDYxIDY5LjM5NTkgNy44NjU0Nkw2MS41MDI5IDE2Ljc0MDNDNjEuNDI4MiAxNi44MjQxIDYxLjQyMjIgMTYuOTQ4NSA2MS40ODg0IDE3LjAzOUw3MC4wMDk5IDI4LjcwNzNDNzAuMTI0OCAyOC44NjQ5IDcwLjAxMjEgMjkuMDg2MSA2OS44MTcgMjkuMDg2MUg2Ni40MDQyQzY2LjMyNzMgMjkuMDg2MSA2Ni4yNTQ5IDI5LjA0OTIgNjYuMjEgMjguOTg2OUw1OS4zMzYyIDE5LjQzNzNDNTkuMjQ1NyAxOS4zMTE3IDU5LjA2MTQgMTkuMzAzOSA1OC45NjA2IDE5LjQyMTVMNTYuNjI5NCAyMi4xNDQ0QzU2LjU5MjYgMjIuMTg3NiA1Ni41NzIzIDIyLjI0MjUgNTYuNTcyMyAyMi4yOTkzVjI4Ljg0NzdDNTYuNTcyMyAyOC45NzkzIDU2LjQ2NTMgMjkuMDg2MSA1Ni4zMzM1IDI5LjA4NjFINTMuNDg2QzUzLjM1MzkgMjkuMDg2MSA1My4yNDcyIDI4Ljk3OTMgNTMuMjQ3MiAyOC44NDc3VjcuMTUyMzVDNTMuMjQ3MiA3LjAyMDY4IDUzLjM1MzkgNi45MTM5NCA1My40ODYgNi45MTM5NEg1Ni4zMzM1QzU2LjQ2NTMgNi45MTM5NCA1Ni41NzIzIDcuMDIwNjggNTYuNTcyMyA3LjE1MjM1VjE3LjMyNjRaTTEwNC43ODYgMjguNzY3OEMxMDQuODQyIDI4LjkyMzEgMTA0LjcyNiAyOS4wODYxIDEwNC41NjEgMjkuMDg2MUgxMDEuNTUzQzEwMS40NTEgMjkuMDg2MSAxMDEuMzYgMjkuMDIxNSAxMDEuMzI3IDI4LjkyNTJMOTkuNDE3MiAyMy4zNjkzQzk5LjM4NCAyMy4yNzMgOTkuMjkzMyAyMy4yMDgzIDk5LjE5MTMgMjMuMjA4M0g5MC45NDM5QzkwLjg0MTkgMjMuMjA4MyA5MC43NTA5IDIzLjI3MzEgOTAuNzE4IDIzLjM2OTZMODguODE3MyAyOC45MjQ3Qzg4Ljc4NDEgMjkuMDIxMyA4OC42OTM0IDI5LjA4NjEgODguNTkxMiAyOS4wODYxSDg1LjU2ODZDODUuNDAzMyAyOS4wODYxIDg1LjI4ODIgMjguOTIyOCA4NS4zNDM3IDI4Ljc2NzZMOTMuMDk0MyA3LjA3MjI3QzkzLjEyODUgNi45NzczMyA5My4yMTg1IDYuOTEzOTQgOTMuMzE5MyA2LjkxMzk0SDk2LjgyNUM5Ni45MjYgNi45MTM5NCA5Ny4wMTYgNi45NzczOCA5Ny4wNDk5IDcuMDcyMzlMMTA0Ljc4NiAyOC43Njc4Wk0xMTYuNTczIDI0LjAyOTRDMTE2LjYwMSAyNC4wOTk4IDExNi42NyAyNC4xNDU4IDExNi43NDYgMjQuMTQ1OEMxMTYuODIyIDI0LjE0NTggMTE2Ljg5IDI0LjEgMTE2LjkxOSAyNC4wMjk3TDEyMy44MzEgNy4wNjI1NEMxMjMuODY3IDYuOTcyNjggMTIzLjk1NSA2LjkxMzk0IDEyNC4wNTIgNi45MTM5NEgxMjcuNzYxQzEyNy44OTMgNi45MTM5NCAxMjggNy4wMjA2OCAxMjggNy4xNTIzNVYyOC44NDc3QzEyOCAyOC45NzkzIDEyNy44OTMgMjkuMDg2MSAxMjcuNzYxIDI5LjA4NjFIMTI0Ljk4N0MxMjQuODU2IDI5LjA4NjEgMTI0Ljc0OSAyOC45NzkzIDEyNC43NDkgMjguODQ3N1YxMy4xNjgzQzEyNC43NDkgMTMuMTAwMSAxMjQuNjkzIDEzLjA0NDkgMTI0LjYyNSAxMy4wNDQ5QzEyNC41NzQgMTMuMDQ0OSAxMjQuNTI5IDEzLjA3NTMgMTI0LjUxIDEzLjEyMThMMTE4LjA4NSAyOC45MDc2QzExOC4wNDggMjguOTk3NCAxMTcuOTYgMjkuMDU2MyAxMTcuODY0IDI5LjA1NjNIMTE1LjU1NUMxMTUuNDU4IDI5LjA1NjMgMTE1LjM3IDI4Ljk5NzIgMTE1LjMzNCAyOC45MDY2TDEwOC45ODIgMTMuMTA3NEMxMDguOTYzIDEzLjA2MDYgMTA4LjkxNyAxMy4wMyAxMDguODY3IDEzLjAzQzEwOC43OTkgMTMuMDMgMTA4Ljc0MyAxMy4wODUyIDEwOC43NDMgMTMuMTUzM1YyOC44NDc3QzEwOC43NDMgMjguOTc5MyAxMDguNjM3IDI5LjA4NjEgMTA4LjUwNCAyOS4wODYxSDEwNS44MDVDMTA1LjY3MyAyOS4wODYxIDEwNS41NjYgMjguOTc5MyAxMDUuNTY2IDI4Ljg0NzdWNy4xNTIzNUMxMDUuNTY2IDcuMDIwNjggMTA1LjY3MyA2LjkxMzk0IDEwNS44MDUgNi45MTM5NEgxMDkuNDU0QzEwOS41NTIgNi45MTM5NCAxMDkuNjM5IDYuOTcyNzggMTA5LjY3NiA3LjA2MjcxTDExNi41NzMgMjQuMDI5NFpNOTEuODM4NSAyMC4wOTUyQzkxLjc4NTQgMjAuMjQ5OSA5MS45MDA4IDIwLjQxMDcgOTIuMDY0NCAyMC40MTA3SDk4LjA2NTNDOTguMjI5NCAyMC40MTA3IDk4LjM0NDUgMjAuMjQ5NiA5OC4yOTEyIDIwLjA5NDlMOTUuMTc0OCAxMS4wMzAzQzk1LjE1NzYgMTAuOTgwMiA5NS4xMTA2IDEwLjk0NjcgOTUuMDU3NiAxMC45NDY3Qzk1LjAwNDUgMTAuOTQ2NyA5NC45NTczIDEwLjk4MDMgOTQuOTQwMyAxMS4wMzA1TDkxLjgzODUgMjAuMDk1MloiIGZpbGw9IiMxRTFGMjEiLz4KPC9nPgo8ZGVmcz4KPGNsaXBQYXRoIGlkPSJjbGlwMF8xNTQwOF8xMTg1OSI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMzYiIGZpbGw9IndoaXRlIi8+CjwvY2xpcFBhdGg+CjwvZGVmcz4KPC9zdmc+Cg==">
+    <div class="who"><b>Minted</b> · DoorDash greeting cards</div>
+    <div class="sp"></div>
+    <span class="conn" id="conn"><i></i><span>Connecting…</span></span>
+    <button class="btn" id="refresh" type="button">Refresh</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="eyebrow">Billing Check</div>
+  <div class="titlerow">
+    <h1 id="h1">DoorDash POs against the accounting PO tracker</h1>
+    <span class="sp"></span>
+    <span class="month">
+      <button class="btn sm" id="prev" type="button" aria-label="Previous month">‹</button>
+      <input type="month" id="month" aria-label="Month">
+      <button class="btn sm" id="next" type="button" aria-label="Next month">›</button>
+    </span>
+  </div>
+  <div id="out"><div class="loading">Building the month's rows and checking each one against the tracker…</div></div>
+  <div class="foot">
+    How the check works:
+    <ul>
+      <li>One row per DoorDash PO issued in the month, from the SPS order export, CTL's shipments, FedEx and the accounting tracker.</li>
+      <li>A row <b>matches</b> when PO $, total quantity, expected ship date, shipping charge and FedEx tracking all agree with the line accounting entered in the BD Wholesale &amp; Accounting PO tracker.</li>
+      <li>Shipping charge follows Minted's rule: up to 50 cards $8.60, 51–150 $9.00, 151+ $10.00. Cancelled orders (including a seasonal card in an everyday order) are written as accounting writes them: $0 and "Cancelled".</li>
+    </ul>
+  </div>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* Minted page navigation v1: a collapsible left rail linking every Minted demo page.
+ * The page names itself with <meta name="minted-page" content="<id>">.
+ * In Claude each link opens that page's artifact; on the Ekyam server (minted-endpoint set) it opens the sibling file.
+ * window.MintedNav.href(id, hash) gives the link to another page, e.g. MintedNav.href("order-journey", "POA000163948").
+ */
+(function () {
+  "use strict";
+  var PAGES = [
+    { id: "control-tower", group: "Overview", title: "Control Tower", url: "https://claude.ai/artifact/PVCsY99mGRccthZtNPjcym", icon: "M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z" },
+    { id: "order-journey", group: "Orders", title: "Order Journey", url: "https://claude.ai/artifact/XQjxbN7MjVD7LxRUFXLpDo", icon: "M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM19 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM7 17h6a3 3 0 0 0 3-3v-1a3 3 0 0 1 3-3" },
+    { id: "mixed-orders", group: "Orders", title: "Mixed-Order Alert", url: "https://claude.ai/artifact/MqjzFTANaxBME4PPmmiUZ8", icon: "M12 3 2 20h20zM12 10v4M12 17h.01" },
+    { id: "weekly-shipped", group: "Inventory", title: "Weekly Shipped", url: "https://claude.ai/artifact/PRoP2sMgqhRpjxRoHFQcje", icon: "M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4zM16 16h4v4h-4z" },
+    { id: "reorder-planner", group: "Inventory", title: "Reorder Planner", url: "https://claude.ai/artifact/R26KsG3VN93VvjcLeeFqJG", icon: "M4 7h11M4 12h7M4 17h13M19 5v14M16 16l3 3 3-3" },
+    { id: "billing-check", group: "Billing", title: "Billing Check", url: "https://claude.ai/artifact/4T2fn6mGig51Sw2FBT4zZU", icon: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3" },
+    { id: "graph-census", group: "Data", title: "Graph Census", url: "https://claude.ai/artifact/Y4uSyP4Cuax7ECJvAk9bEf", icon: "M6 6a2 2 0 1 0 0-.01M18 6a2 2 0 1 0 0-.01M12 18a2 2 0 1 0 0-.01M8 6h8M7 8l4 8M17 8l-4 8" }
+  ];
+  function hosted() { var m = document.querySelector('meta[name="minted-endpoint"]'); return !!(m && m.content && m.content.trim()); }
+  function href(id, hash) {
+    var p = PAGES.filter(function (x) { return x.id === id; })[0];
+    if (!p) return "#";
+    var base = hosted() || p.url.indexOf("__URL_") === 0 ? p.id + ".html" : p.url;
+    return base + (hash ? "#" + hash : "");
+  }
+  var KEY = "mn_nav_collapsed";
+  function getC() { try { return localStorage.getItem(KEY) === "1"; } catch (e) { return false; } }
+  function setC(v) { try { localStorage.setItem(KEY, v ? "1" : "0"); } catch (e) { /* not kept */ } }
+
+  var CSS =
+    ":root{--nav-w:228px;--nav-wc:62px}" +
+    "html.mn-nav body{padding-left:calc(var(--nav-w) + env(safe-area-inset-left,0px));transition:padding-left .18s}" +
+    "html.mn-nav.mn-c body{padding-left:calc(var(--nav-wc) + env(safe-area-inset-left,0px))}" +
+    ".mn-side{position:fixed;left:0;top:0;bottom:0;width:calc(var(--nav-w) + env(safe-area-inset-left,0px));padding:calc(10px + env(safe-area-inset-top,0px)) 10px calc(12px + env(safe-area-inset-bottom,0px)) calc(10px + env(safe-area-inset-left,0px));background:#0f1725;color:#c9d3e3;z-index:90;display:flex;flex-direction:column;gap:2px;overflow-y:auto;transition:width .18s,transform .2s;font:13px/1.4 'Inter',-apple-system,'Segoe UI',Roboto,Arial,sans-serif}" +
+    "html.mn-c .mn-side{width:calc(var(--nav-wc) + env(safe-area-inset-left,0px))}" +
+    ".mn-head{display:flex;align-items:center;gap:8px;padding:4px 4px 12px;border-bottom:1px solid #223049;margin-bottom:8px;min-height:44px}" +
+    ".mn-brand{font-weight:700;color:#fff;font-size:13.5px;white-space:nowrap;overflow:hidden}" +
+    ".mn-brand small{display:block;font-weight:500;color:#8a97ad;font-size:11px}" +
+    ".mn-tog{margin-left:auto;flex:none;width:30px;height:30px;border-radius:8px;border:1px solid #2a3a57;background:#16213a;color:#c9d3e3;cursor:pointer;display:grid;place-items:center}" +
+    ".mn-tog:hover{background:#1e2c4a;color:#fff}" +
+    ".mn-tog svg{transition:transform .18s}html.mn-c .mn-tog svg{transform:rotate(180deg)}" +
+    "html.mn-c .mn-brand,html.mn-c .mn-grp,html.mn-c .mn-lab,html.mn-c .mn-foot{display:none}" +
+    "html.mn-c .mn-head{justify-content:center;padding-inline:0}html.mn-c .mn-tog{margin:0}" +
+    ".mn-grp{font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#6f7d95;padding:10px 8px 4px}" +
+    ".mn-a{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:9px;color:#c9d3e3;text-decoration:none;white-space:nowrap;font-weight:500}" +
+    ".mn-a:hover{background:#18243d;color:#fff}" +
+    ".mn-a:focus-visible,.mn-tog:focus-visible,.mn-menu:focus-visible{outline:2px solid #6f9bff;outline-offset:2px}" +
+    ".mn-a.on{background:#2f6fed;color:#fff}" +
+    ".mn-a svg{flex:none;width:18px;height:18px}" +
+    "html.mn-c .mn-a{justify-content:center;padding:9px 0}" +
+    ".mn-foot{margin-top:auto;padding:12px 8px 0;border-top:1px solid #223049;font-size:11px;color:#8a97ad;line-height:1.5}" +
+    ".mn-menu{display:none;border:1px solid #d5dbe4;background:#fff;border-radius:9px;width:36px;height:34px;cursor:pointer;place-items:center;color:#16202e;flex:none}" +
+    ".mn-scrim{display:none}" +
+    "@media (max-width:860px){" +
+      "html.mn-nav body,html.mn-nav.mn-c body{padding-left:0}" +
+      ".mn-side{width:calc(250px + env(safe-area-inset-left,0px));transform:translateX(-105%);box-shadow:0 10px 40px rgba(0,0,0,.35)}" +
+      "html.mn-c .mn-side{width:calc(250px + env(safe-area-inset-left,0px))}" +
+      "html.mn-c .mn-brand,html.mn-c .mn-grp,html.mn-c .mn-lab,html.mn-c .mn-foot{display:block}html.mn-c .mn-a{justify-content:flex-start;padding:8px 9px}" +
+      "html.mn-open .mn-side{transform:none}" +
+      ".mn-tog{display:none}.mn-menu{display:grid}" +
+      "html.mn-open .mn-scrim{display:block;position:fixed;inset:0;background:rgba(15,23,37,.45);z-index:85}" +
+    "}" +
+    "@media (prefers-reduced-motion:reduce){.mn-side,html.mn-nav body{transition:none}}";
+
+  function svg(d) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/></svg>'; }
+
+  function mount() {
+    var meta = document.querySelector('meta[name="minted-page"]');
+    var cur = meta ? meta.content : "";
+    var st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st);
+    var root = document.documentElement; root.classList.add("mn-nav"); if (getC()) root.classList.add("mn-c");
+    var groups = [], html = "";
+    PAGES.forEach(function (p) {
+      if (groups.indexOf(p.group) < 0) { groups.push(p.group); html += '<div class="mn-grp">' + p.group + "</div>"; }
+      html += '<a class="mn-a' + (p.id === cur ? " on" : "") + '" href="' + href(p.id) + '"' + (p.id === cur ? ' aria-current="page"' : "") + ' title="' + p.title + '">' + svg(p.icon) + '<span class="mn-lab">' + p.title + "</span></a>";
+    });
+    var side = document.createElement("nav");
+    side.className = "mn-side"; side.setAttribute("aria-label", "Minted pages");
+    side.innerHTML = '<div class="mn-head"><div class="mn-brand">Minted × DoorDash<small>Ekyam demo pages</small></div>' +
+      '<button class="mn-tog" type="button" aria-label="Collapse or expand the menu" title="Collapse or expand">' + svg("M15 6l-6 6 6 6") + "</button></div>" +
+      html + '<div class="mn-foot">Every page reads the same Minted tools on Ekyam, so the numbers agree everywhere.</div>';
+    document.body.insertBefore(side, document.body.firstChild);
+    var scrim = document.createElement("div"); scrim.className = "mn-scrim"; document.body.appendChild(scrim);
+    side.querySelector(".mn-tog").onclick = function () { var c = !root.classList.contains("mn-c"); root.classList.toggle("mn-c", c); setC(c); };
+    scrim.onclick = function () { root.classList.remove("mn-open"); };
+    var bar = document.querySelector(".top .wrap");
+    if (bar) {
+      var b = document.createElement("button"); b.className = "mn-menu"; b.type = "button"; b.setAttribute("aria-label", "Open the page menu");
+      b.innerHTML = svg("M4 7h16M4 12h16M4 17h16");
+      b.onclick = function () { root.classList.toggle("mn-open"); };
+      bar.insertBefore(b, bar.firstChild);
+    }
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") root.classList.remove("mn-open"); });
+    // In Claude each page is its own artifact: open links to the others in a new tab (the viewer frame can't navigate itself).
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest && e.target.closest("a[href]");
+      if (a && /^https:\/\/claude\.ai\/artifact\//.test(a.getAttribute("href"))) { a.target = "_blank"; a.rel = "noopener"; }
+    }, true);
+  }
+
+  window.MintedNav = { href: href, pages: PAGES, mount: mount };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount); else mount();
+})();
+
+</script>
+<script>
+/* Minted data layer v1 (Oct 31 2026)
+ * One way for every Minted demo page to call the Minted tools, so the numbers are the same everywhere.
+ *
+ *  - In Claude (published artifact): calls go through the viewer's "Ekyam Dev" connector
+ *    (artifact capability `mcp`). Nothing else to set up.
+ *  - On the Ekyam server (Gemini, a plain browser): set
+ *      <meta name="minted-endpoint" content="https://<ekyam-host>/minted/api/tools">
+ *    and the page sends  POST <endpoint>/<tool_name>  with the tool's input as a JSON body,
+ *    cookies included (the Ekyam server signs the user in). The server answers with the tool's
+ *    JSON exactly as the MCP tool returns it ({"success": true, ...}).
+ *
+ * API (window.MintedData):
+ *   await MintedData.init()                  -> "claude" | "ekyam" | "none"
+ *   await MintedData.call(tool, input, {refresh})  -> the tool's JSON; throws {code, message}
+ *   MintedData.explain(error)                -> one plain sentence for the page
+ *   await MintedData.save(filename, text, mime)    -> offers a file to the viewer
+ */
+(function () {
+  "use strict";
+  var SERVER = "Ekyam Dev";
+  // Tools that keep a 24 h result cache on the server and accept refresh=true.
+  var CACHED = {
+    minted_weekly_shipped_by_card: 1, minted_reorder_plan: 1, minted_build_seasonal_po: 1,
+    minted_order_check: 1, minted_delivery_status: 1, minted_billing_report: 1, minted_cards_by_location: 1
+  };
+  var modeP = null, mcp = null, ep = "";
+
+  function endpoint() {
+    var m = document.querySelector('meta[name="minted-endpoint"]');
+    return m && m.content ? m.content.trim().replace(/\/+$/, "") : "";
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function err(code, message, extra) { var e = new Error(message); e.code = code; if (extra) { for (var k in extra) e[k] = extra[k]; } return e; }
+
+  function init() {
+    if (modeP) return modeP;
+    modeP = (async function () {
+      ep = endpoint();
+      if (window.claude && typeof window.claude.use === "function") {
+        try { mcp = await window.claude.use("mcp"); } catch (e) { mcp = null; }
+        if (mcp) return "claude";
+      }
+      if (ep) return "ekyam";
+      return "none";
+    })();
+    return modeP;
+  }
+
+  function cleanInput(tool, input, refresh) {
+    var out = {};
+    Object.keys(input || {}).forEach(function (k) {
+      var v = input[k];
+      if (v !== undefined && v !== null && v !== "") out[k] = v;
+    });
+    if (refresh && CACHED[tool]) out.refresh = true;
+    return out;
+  }
+
+  function payloadOf(res) {
+    var p = res && res.payload !== undefined ? res.payload
+      : res && res.structuredContent !== undefined ? res.structuredContent
+      : res && res.content && res.content[0] && res.content[0].text;
+    if (typeof p === "string") { try { p = JSON.parse(p); } catch (e) { /* keep text */ } }
+    return p;
+  }
+
+  function toolMessage(e) {
+    var t = e && e.result && e.result.content && e.result.content[0] && e.result.content[0].text;
+    if (!t) return (e && e.message) || "";
+    try { var j = JSON.parse(t); return j.error || j.message || t; } catch (x) { return t; }
+  }
+
+  async function call(tool, input, opts) {
+    opts = opts || {};
+    var mode = await init();
+    var args = cleanInput(tool, input, opts.refresh);
+    if (mode === "claude") {
+      var res;
+      try {
+        res = await mcp.callTool(SERVER, tool, args,
+          opts.refresh ? { cache: false } : { cache: { staleTime: 10 * 60 * 1000, gcTime: 24 * 3600 * 1000 } });
+      } catch (e) {
+        if (e && e.retryable && !opts._retried) {
+          await sleep(e.retryAfterMs || (500 + Math.random() * 900));
+          return call(tool, input, Object.assign({}, opts, { _retried: true }));
+        }
+        if (e && e.code === "tool_error") throw err("tool_error", toolMessage(e) || "The tool reported an error.");
+        throw err((e && e.code) || "upstream_error", (e && e.message) || "The call failed.");
+      }
+      var p = payloadOf(res);
+      if (!p || typeof p !== "object") throw err("bad_answer", "The tool sent back something this page can't read.");
+      if (p.success === false) throw err("tool_failed", p.error || "The tool could not answer with these inputs.");
+      return p;
+    }
+    if (mode === "ekyam") {
+      var r;
+      try {
+        r = await fetch(ep + "/" + encodeURIComponent(tool), {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(args)
+        });
+      } catch (e) {
+        throw err("network", "The Ekyam server could not be reached.");
+      }
+      if (r.status === 401 || r.status === 403) throw err("signed_out", "Not signed in to Ekyam.");
+      if (!r.ok) {
+        if (r.status >= 500 && !opts._retried) { await sleep(800); return call(tool, input, Object.assign({}, opts, { _retried: true })); }
+        throw err("server_error", "The Ekyam server answered " + r.status + ".");
+      }
+      var j = await r.json();
+      if (j && j.success === false) throw err("tool_failed", j.error || "The tool could not answer with these inputs.");
+      return j;
+    }
+    throw err("no_connection", "No data connection.");
+  }
+
+  function explain(e) {
+    var c = e && e.code;
+    switch (c) {
+      case "server_not_connected": return "Add the Ekyam Dev connector in claude.ai Settings → Connectors, then reload this page.";
+      case "needs_reauth": return "Reconnect Ekyam Dev in claude.ai Settings → Connectors, then reload.";
+      case "not_in_manifest": return "This page isn't allowed to use Ekyam Dev for you. Turn it on in this page's Permissions menu, then reload.";
+      case "approval_required": return "This page needs your OK to use Ekyam Dev. Press Refresh and allow it when Claude asks.";
+      case "selection_required": return "You have more than one connector named Ekyam Dev. Pick one when Claude asks, then reload.";
+      case "blocked_by_policy": return "Your organization's settings block this Ekyam Dev tool for your account.";
+      case "server_unavailable": case "upstream_error": return "Ekyam Dev didn't answer just now. Press Refresh in a minute.";
+      case "tool_error": return "Ekyam Dev returned an error: " + (e.message || "no details") + ".";
+      case "tool_failed": return e.message || "The tool could not answer with these inputs.";
+      case "not_granted": case "capability_disabled": case "capability_removed":
+        return "This view can't reach connectors. Open the page on claude.ai to load live data.";
+      case "signed_out": return "Sign in to Ekyam, then reload this page.";
+      case "network": case "server_error": return "The Ekyam server didn't answer. Try again in a minute.";
+      case "no_connection": return "Open this page on claude.ai with the Ekyam Dev connector, or from the Ekyam server, to load live data.";
+      default: return (e && e.message) || "The data could not be loaded.";
+    }
+  }
+
+  async function save(filename, text, mime) {
+    var mode = await init();
+    if (mode === "claude") {
+      var dl = null;
+      try { dl = await window.claude.use("downloads"); } catch (e) { dl = null; }
+      if (!dl) throw err("no_downloads", "Downloads aren't available in this view.");
+      await dl.save({ filename: filename, data: new Blob([text], { type: mime || "text/csv" }) });
+      return true;
+    }
+    var url = URL.createObjectURL(new Blob([text], { type: mime || "text/csv" }));
+    var a = document.createElement("a"); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    return true;
+  }
+
+  window.MintedData = { init: init, call: call, explain: explain, save: save, SERVER: SERVER };
+})();
+
+</script>
+<script>
+/* Minted Excel files v1: the three files Minted's team works in, laid out cell for cell like their own templates.
+ *   MX.everydayPO(payload)   minted_build_everyday_po  -> DDEDmmddyy.xlsx  (template: DDED081026.xlsx)
+ *   MX.seasonalPO(payload)   minted_build_seasonal_po  -> DDHOLmmddyy.xlsx (template: DDHOL102325.xlsx)
+ *   MX.trackerBook(rows)     minted_billing_report     -> rows for the "PO Tracker" tab of the BD Wholesale & Accounting tracker
+ *   MX.trackerTSV(rows)      the same rows for the clipboard, starting at column B (Partner)
+ *   MX.download(book, name)  saves through MintedData.save (needs SheetJS, window.XLSX)
+ * Totals are Excel formulas with their values filled in, like the templates, so editing a quantity or a price in
+ * the "Pricing table" tab recalculates the PO.
+ */
+(function () {
+  "use strict";
+  var PRICES = { FLAT: 0.3, FOIL: 0.4, BOX: 0.82, BAND: 0.23 }; // Minted's "Pricing table" tab
+  var MINTED = ["Minted, LLC", null, "747 Front Street, 2nd floor", "San Francisco, CA 94111", "919-264-6219 | phone", "415.399.1717 | fax"];
+  var ENVELOPES = [["Kraft", "19215W"], ["silver", "19212W"], ["White", 19238]];
+  var USD = '_("$"* #,##0.00_);_("$"* \\(#,##0.00\\);_("$"* "-"??_);_(@_)', USD4 = '"$"#,##0.0000_);[Red]\\("$"#,##0.0000\\)';
+  var USD3 = '"$"#,##0.000_);[Red]\\("$"#,##0.000\\)', INT = '_(* #,##0_);_(* \\(#,##0\\);_(* "-"??_);_(@_)';
+  var LONGDATE = "mmmm d, yyyy", SHORTDATE = "mm-dd-yy";
+
+  function X() { if (!window.XLSX) { var e = new Error("Excel export isn't available here"); e.code = "no_xlsx"; throw e; } return window.XLSX; }
+  function date(s) { if (!s) return null; var p = String(s).slice(0, 10).split("-"); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2], 12)); }
+  function serial(s) { if (!s) return null; var p = String(s).slice(0, 10).split("-"); return Date.UTC(+p[0], +p[1] - 1, +p[2]) / 86400000 + 25569; }
+  function r2(x) { return Math.round((x || 0) * 100) / 100; }
+  function upcNum(u) { return /^\d{1,15}$/.test(String(u || "")) ? Number(u) : (u || ""); }
+  function unit(print) { return /foil/i.test(print || "") ? PRICES.FOIL : PRICES.FLAT; }
+
+  /* a tiny sheet writer: put(addr, value, {f, z}) */
+  function Sheet() {
+    var ws = {}, maxR = 0, maxC = 0;
+    function put(addr, v, o) {
+      o = o || {}; if (v === null || v === undefined) v = o.f ? 0 : "";
+      if (v === "" && !o.f) return;
+      var c = { v: v, t: typeof v === "number" ? "n" : typeof v === "boolean" ? "b" : "s" };
+      if (o.date) { c.t = "n"; c.v = serial(v); c.z = o.z || "m/d/yyyy"; if (c.v === null) return; }
+      if (o.text) { c.t = "s"; c.v = String(v); }
+      if (o.f) c.f = o.f;
+      if (o.z && !o.date) c.z = o.z;
+      ws[addr] = c;
+      var rc = X().utils.decode_cell(addr); maxR = Math.max(maxR, rc.r); maxC = Math.max(maxC, rc.c);
+    }
+    function done(cols, merges) {
+      ws["!ref"] = X().utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
+      if (cols) ws["!cols"] = cols.map(function (w) { return { wch: w }; });
+      if (merges) ws["!merges"] = merges.map(function (m) { return X().utils.decode_range(m); });
+      return ws;
+    }
+    return { put: put, done: done };
+  }
+  function letters(i) { return X().utils.encode_col(i); }
+  function pricingSheet() {
+    var s = Sheet();
+    s.put("A1", "FLAT"); s.put("B1", PRICES.FLAT, { z: USD3 });
+    s.put("A2", "FOIL"); s.put("B2", PRICES.FOIL, { z: USD3 });
+    s.put("A5", "SHIPPING BOX"); s.put("B5", PRICES.BOX, { z: USD3 });
+    s.put("A6", "BELLY BAND"); s.put("B6", PRICES.BAND, { z: USD3 });
+    return s.done([16, 10]);
+  }
+  function header(s, c, h, dest) { // c = column letters for the template's label/value columns
+    s.put(c.title + "1", "PURCHASE ORDER");
+    MINTED.forEach(function (t, i) { if (t) s.put("A" + (3 + i), t); });
+    s.put(c.lab + "5", "Minted P.O. NO."); s.put(c.val + "5", h.po_name);
+    s.put(c.lab + "6", "ORDER DATE"); s.put(c.val + "6", h.order_date, { date: true, z: LONGDATE });
+    s.put(c.cust + "7", "CUSTOMER ID"); s.put(c.val + "7", h.customer_id || "Minted");
+    s.put("A10", "VENDOR"); var v = h.vendor || {};
+    s.put("B10", v.name); s.put("B11", v.address1); s.put("B12", v.city_state_zip);
+    s.put(c.lab + "10", "Final Destination");
+    if (typeof dest === "string") s.put(c.val + "10", dest);
+    else if (dest) { s.put(c.val + "10", dest.name); s.put(c.val + "11", dest.address1); s.put(c.val + "12", dest.city_state_zip); }
+  }
+
+  /* ---------- Everyday PO (DDED) ---------- */
+  function everydayPO(p) {
+    var XL = X(), h = p.header || {}, ls = p.lines || [], n = ls.length;
+    var s = Sheet(), last = Math.max(38, 18 + n), tot = last + 2;
+    header(s, { title: "E", lab: "E", val: "F", cust: "D" }, h, h.final_destination);
+    s.put("A15", "SHIPPING METHOD"); s.put("D15", "SHIPPING TERMS/FOB "); s.put("I15", "Ship Date"); s.put("J15", "DELIVERY DATE");
+    s.put("A16", h.shipping_method); s.put("D16", h.shipping_terms);
+    s.put("I16", h.ship_date, { date: true, z: SHORTDATE, f: "F6+14" });
+    s.put("J16", h.delivery_date, { date: true, z: SHORTDATE, f: "I16+7" });
+    ["SKU #", "UPC", "UPC for C-Box Label", "Description", "Print Type", "Envelope Type", "Foil Color", "Prod qty", "Unit Cost", "Total Cost"]
+      .forEach(function (t, i) { s.put(letters(i) + "18", t); });
+    var sub = 0, cards = 0;
+    ls.forEach(function (l, k) {
+      var r = 19 + k, u = l.unit_cost != null ? l.unit_cost : unit(l.print_type), t = r2(l.prod_qty * u);
+      sub += t; cards += l.prod_qty || 0;
+      s.put("A" + r, l.sku_number); s.put("B" + r, upcNum(l.upc), { z: "0" }); s.put("C" + r, l.upc_c_box);
+      s.put("D" + r, l.description); s.put("E" + r, l.print_type); s.put("F" + r, l.envelope_type); s.put("G" + r, l.foil_color || "");
+      s.put("H" + r, l.prod_qty);
+      s.put("I" + r, u, { z: USD4, f: "VLOOKUP(E" + r + ",'Pricing table'!A:B,2,0)" });
+      s.put("J" + r, t, { z: USD, f: "H" + r + "*I" + r });
+    });
+    var boxes = cards / 240, pack = r2(boxes * PRICES.BOX);
+    s.put("H" + tot, cards, { z: INT, f: "SUM(H19:H" + last + ")" });
+    s.put("I" + tot, "SUBTOTAL"); s.put("J" + tot, r2(sub), { z: USD, f: "SUM(J19:J" + last + ")" });
+    s.put("I" + (tot + 1), "Packaging/materials"); s.put("J" + (tot + 1), pack, { z: USD, f: "('Pricing table'!B5*'Extra Summaries for Order'!F5)" });
+    s.put("I" + (tot + 2), "TOTAL"); s.put("J" + (tot + 2), r2(sub + pack), { z: USD, f: "SUM(J" + tot + ":J" + (tot + 1) + ")" });
+    var master = s.done([15, 15, 19, 30, 11, 14, 11, 10, 12, 13], ["D15:H15", "D16:H16", "F5:G5", "F6:G6", "A15:C15", "A16:C16"]);
+
+    var e = Sheet(), envQty = {};
+    ls.forEach(function (l) { var k = String(l.envelope_type || "").toLowerCase(); envQty[k] = (envQty[k] || 0) + (l.prod_qty || 0); });
+    e.put("A1", "Summary for Full Order");
+    e.put("A3", "Envelope type"); e.put("B3", "Minted Item#"); e.put("C3", "Prod Qty");
+    e.put("E3", "Total # of Distribution locations"); e.put("F3", (p.totals && p.totals.distribution_locations) || 1);
+    ENVELOPES.forEach(function (en, i) {
+      var r = 4 + i; e.put("A" + r, en[0]); e.put("B" + r, en[1]);
+      e.put("C" + r, envQty[en[0].toLowerCase()] || 0, { z: INT, f: "SUMIF('MASTER PO'!$F$18:$F$" + last + ",'Extra Summaries for Order'!A" + r + ",'MASTER PO'!$H$18:$H$" + last + ")" });
+    });
+    e.put("E5", "Total C-boxes (240 cards / box)"); e.put("F5", boxes, { f: "'MASTER PO'!H" + tot + "/240" });
+    e.put("A7", "Total"); e.put("C7", cards, { z: INT, f: "SUM(C4:C6)" });
+    var wb = XL.utils.book_new();
+    XL.utils.book_append_sheet(wb, master, "MASTER PO");
+    XL.utils.book_append_sheet(wb, e.done([16, 13, 10, 3, 30, 8], ["A1:F1"]), "Extra Summaries for Order");
+    XL.utils.book_append_sheet(wb, pricingSheet(), "Pricing table");
+    return { book: wb, file: (h.po_name || "DDED") + ".xlsx", subtotal: r2(sub), packaging: pack, total: r2(sub + pack), cards: cards, boxes: boxes };
+  }
+
+  /* ---------- Seasonal PO (DDHOL) with the Distribution PO tab ---------- */
+  var DIST_COLS = ["PurchaseNumber", "Carrier", "Service", "Fedex Account#", "ShipToName", "ShipToAddr1", "ShipToAddr2", "ShipToCity",
+    "ShipToStateOrProvince", "ShipToPostalCode", "ShipToCountryCode", "UPC", "Item Desc", "Qty", "ShipByDate", "DeliverByDate",
+    "Print Type", "Envelope Type", "SKU", "Belly Band Count", "SKU Cost", "Belly Band Cost", "Total Line Cost"];
+  function band(q) { return q < 2 ? 0 : q < 13 ? 1 : 2; } // template: IFS(N<2,0,N<13,1,N>12,2)
+  function seasonalPO(p) {
+    var XL = X(), h = p.header || {}, ls = p.master_lines || [], dist = p.distribution || [], n = ls.length;
+    var byUpc = {}; ls.forEach(function (l) { byUpc[String(l.upc)] = l; });
+    var s = Sheet(), last = Math.max(39, 18 + n), tot = last + 2, dEnd = dist.length + 1;
+    header(s, { title: "D", lab: "D", val: "E", cust: "C" }, h, h.final_destination || "See Distribution PO");
+    s.put("A15", "SHIPPING METHOD"); s.put("C15", "SHIPPING TERMS/FOB "); s.put("H15", "Ship Date"); s.put("I15", "DELIVERY DATE");
+    s.put("A16", h.shipping_method); s.put("C16", h.shipping_terms);
+    s.put("H16", h.ship_date, { date: true, z: SHORTDATE, f: "I16-7" });
+    s.put("I16", h.delivery_date, { date: true, z: SHORTDATE });
+    ["SKU #", "UPC", "Description", "Print Type", "Envelope Type", "Foil Color", "Prod qty", "Unit Cost", "Total Cost"]
+      .forEach(function (t, i) { s.put(letters(i) + "18", t); });
+    var sub = 0, cards = 0;
+    ls.forEach(function (l, k) {
+      var r = 19 + k, u = l.unit_cost != null ? l.unit_cost : unit(l.print_type), t = r2(l.prod_qty * u);
+      sub += t; cards += l.prod_qty || 0;
+      s.put("A" + r, l.sku_number); s.put("B" + r, upcNum(l.upc), { z: "0" }); s.put("C" + r, l.description);
+      s.put("D" + r, l.print_type); s.put("E" + r, l.envelope_type); s.put("F" + r, l.foil_color || "");
+      s.put("G" + r, l.prod_qty, { f: "SUMIF('Distribution PO'!$L:$L,'MASTER PO'!B" + r + ",'Distribution PO'!$N:$N)" });
+      s.put("H" + r, u, { z: USD4, f: "VLOOKUP(D" + r + ",'Pricing table'!A:B,2,0)" });
+      s.put("I" + r, t, { z: USD, f: "G" + r + "*H" + r });
+    });
+    var bands = dist.reduce(function (a, d) { return a + band(+d.Qty || 0); }, 0);
+    var locs = (p.summary && p.summary.locations) || 0, pack = r2(locs * PRICES.BOX + bands * PRICES.BAND);
+    s.put("G" + tot, cards, { z: INT, f: "SUM(G19:G" + last + ")" });
+    s.put("H" + tot, "SUBTOTAL"); s.put("I" + tot, r2(sub), { z: USD, f: "SUM(I19:I" + last + ")" });
+    s.put("H" + (tot + 1), "Packaging/materials");
+    s.put("I" + (tot + 1), pack, { z: USD, f: "('Pricing table'!B5*'Extra Summaries for Order'!F3)+('Pricing table'!B6*SUM('Distribution PO'!T2:T" + dEnd + "))" });
+    s.put("H" + (tot + 2), "TOTAL"); s.put("I" + (tot + 2), r2(sub + pack), { z: USD, f: "SUM(I" + tot + ":I" + (tot + 1) + ")" });
+    var master = s.done([15, 15, 40, 11, 14, 11, 10, 12, 13], ["A16:B16", "E6:F6", "C16:D16", "C15:D15", "E5:F5"]);
+
+    var d = Sheet();
+    DIST_COLS.forEach(function (t, i) { d.put(letters(i) + "1", t); });
+    dist.forEach(function (x, k) {
+      var r = 2 + k, l = byUpc[String(x.UPC)] || {}, q = +x.Qty || 0, b = band(q);
+      var vals = [x.PurchaseNumber, x.Carrier, x.Service, upcNum(x.FedexAccount), x.ShipToName, x.ShipToAddr1, x.ShipToAddr2, x.ShipToCity,
+        x.ShipToStateOrProvince, null, x.ShipToCountryCode, upcNum(x.UPC), x.ItemDesc, q];
+      vals.forEach(function (v, i) { if (v !== null && v !== undefined && v !== "") d.put(letters(i) + r, v, i === 11 ? { z: "0" } : null); });
+      if (x.ShipToPostalCode) d.put("J" + r, x.ShipToPostalCode, { text: true }); // text keeps leading zeros (08012)
+      d.put("Q" + r, l.print_type || ""); d.put("R" + r, l.envelope_type || ""); d.put("S" + r, l.sku_number || "");
+      d.put("T" + r, b, { f: "IF(N" + r + "<2,0,IF(N" + r + "<13,1,2))" });
+      d.put("V" + r, r2(b * PRICES.BAND), { z: USD, f: "T" + r + "*'Pricing table'!$B$6" });
+      d.put("W" + r, r2(b * PRICES.BAND), { z: USD, f: "U" + r + "+V" + r });
+    });
+    var e = Sheet(), envQty = {};
+    ls.forEach(function (l) { var k = String(l.envelope_type || "").toLowerCase(); envQty[k] = (envQty[k] || 0) + (l.prod_qty || 0); });
+    e.put("A1", "Summary for Full Order");
+    e.put("A3", "Envelope type"); e.put("B3", "Minted Item#"); e.put("C3", "Prod Qty");
+    e.put("E3", "Total # of Distribution locations"); e.put("F3", locs);
+    ENVELOPES.forEach(function (en, i) {
+      var r = 4 + i; e.put("A" + r, en[0].toLowerCase()); e.put("B" + r, en[1]);
+      e.put("C" + r, envQty[en[0].toLowerCase()] || 0, { z: INT, f: "SUMIF('MASTER PO'!$E$19:$E$" + last + ",'Extra Summaries for Order'!A" + r + ",'MASTER PO'!$G$19:$G$" + last + ")" });
+    });
+    e.put("A7", "Total"); e.put("C7", cards, { z: INT, f: "SUM(C4:C6)" });
+    var wb = XL.utils.book_new();
+    XL.utils.book_append_sheet(wb, master, "MASTER PO");
+    XL.utils.book_append_sheet(wb, d.done([14, 8, 9, 13, 10, 26, 12, 16, 8, 10, 8, 14, 40, 6, 11, 12, 10, 12, 14, 9, 9, 10, 11]), "Distribution PO");
+    XL.utils.book_append_sheet(wb, e.done([16, 13, 10, 3, 30, 8], ["A1:F1"]), "Extra Summaries for Order");
+    XL.utils.book_append_sheet(wb, pricingSheet(), "Pricing table");
+    return { book: wb, file: (h.po_name || "DDHOL") + ".xlsx", subtotal: r2(sub), packaging: pack, total: r2(sub + pack), cards: cards, bands: bands, locations: locs };
+  }
+
+  /* ---------- PO tracker rows (BD Wholesale & Accounting, tab "PO Tracker", columns A–V) ---------- */
+  var TRACKER = ["", "Partner", "TYPE", "Product", "PO Issued Date", "Expected Ship Date", "PO#", "PO $", "Total Qty", "MBO Order #", "PO Link",
+    "Commercial Invoice #", "Sent to Vendor (Y/N)", "Commercial Invoice Prepared (Y/N)", "Packing List Prepared (Y/N)", "FCR Approved by Minted",
+    "FCR Number", "FOB Point", "Shipped Date", "Delivered Date", "Shipping Cost", "Tracking #"];
+  // which billing-report field fills each tracker column (blank = left for accounting, as in their sheet)
+  var FROM = { "Partner": "Partner", "TYPE": "Type", "Product": "Product", "PO Issued Date": "PO Issued Date", "Expected Ship Date": "Expected Ship Date",
+    "PO#": "PO#", "PO $": "PO $", "Total Qty": "Total Qty", "FOB Point": "FOB Point", "Shipped Date": "Shipped Date",
+    "Delivered Date": "Delivered Date", "Shipping Cost": "Shipping Cost", "Tracking #": "Tracking #" };
+  var GROUPS = { B1: "Program", L1: "Formula", M1: "For SC - Target Only", R1: "For SC" };
+  function cell(r, col) { var k = FROM[col]; return k ? (r[k] == null ? "" : r[k]) : ""; }
+  function trackerTSV(rows) { // starts at column B so it lines up when pasted into Partner
+    var us = function (v) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v); return m ? (+m[2]) + "/" + (+m[3]) + "/" + m[1] : v; };
+    return rows.map(function (r) { return TRACKER.slice(1).map(function (c) { var v = cell(r, c); return /Date/.test(c) ? us(String(v)) : v; }).join("\t"); }).join("\n");
+  }
+  function trackerCSV(rows) {
+    var q = function (v) { v = v == null ? "" : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    return [TRACKER.slice(1)].concat(trackerTSV(rows).split("\n").map(function (l) { return l.split("\t"); })).map(function (r) { return r.map(q).join(","); }).join("\n");
+  }
+  function trackerBook(rows, sheetName) {
+    var XL = X(), s = Sheet();
+    Object.keys(GROUPS).forEach(function (a) { s.put(a, GROUPS[a]); });
+    TRACKER.forEach(function (t, i) { if (t) s.put(letters(i) + "2", t); });
+    rows.forEach(function (r, k) {
+      var row = 3 + k;
+      TRACKER.forEach(function (c, i) {
+        if (!c) return; var v = cell(r, c), a = letters(i) + row;
+        if (v === "" || v == null) return;
+        if (/Date/.test(c) && /^\d{4}-\d{2}-\d{2}/.test(v)) s.put(a, v, { date: true, z: "M/d/yyyy" });
+        else if (c === "PO $" || c === "Shipping Cost") s.put(a, +v, { z: '"$"#,##0.00' });
+        else if (c === "Total Qty") s.put(a, +v, { z: "#,##0" });
+        else if (c === "Tracking #") s.put(a, upcNum(v));
+        else s.put(a, v);
+      });
+    });
+    var wb = XL.utils.book_new();
+    XL.utils.book_append_sheet(wb, s.done([3, 10, 10, 14, 13, 13, 15, 10, 9, 11, 9, 12, 9, 11, 11, 11, 10, 12, 12, 12, 11, 15]), sheetName || "PO Tracker");
+    return wb;
+  }
+
+  /* The template's totals without building a file (for on-screen previews). */
+  function everydayTotals(p) {
+    var cards = 0, sub = 0;
+    (p.lines || []).forEach(function (l) { cards += l.prod_qty || 0; sub += r2((l.prod_qty || 0) * (l.unit_cost != null ? l.unit_cost : unit(l.print_type))); });
+    var pack = r2(cards / 240 * PRICES.BOX);
+    return { cards: cards, subtotal: r2(sub), packaging: pack, total: r2(sub + pack), boxes: cards / 240 };
+  }
+  function seasonalTotals(p) {
+    var cards = 0, sub = 0, bands = (p.distribution || []).reduce(function (a, d) { return a + band(+d.Qty || 0); }, 0), locs = (p.summary && p.summary.locations) || 0;
+    (p.master_lines || []).forEach(function (l) { cards += l.prod_qty || 0; sub += r2((l.prod_qty || 0) * (l.unit_cost != null ? l.unit_cost : unit(l.print_type))); });
+    var pack = r2(locs * PRICES.BOX + bands * PRICES.BAND);
+    return { cards: cards, subtotal: r2(sub), packaging: pack, total: r2(sub + pack), bands: bands, locations: locs };
+  }
+  function download(book, filename) {
+    var out = X().write(book, { bookType: "xlsx", type: "array" });
+    return window.MintedData.save(filename, new Uint8Array(out), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  }
+  window.MX = { everydayPO: everydayPO, seasonalPO: seasonalPO, trackerBook: trackerBook, trackerTSV: trackerTSV, trackerCSV: trackerCSV, everydayTotals: everydayTotals, seasonalTotals: seasonalTotals,
+    download: download, PRICES: PRICES, TRACKER: TRACKER, ready: function () { return !!window.XLSX; } };
+})();
+
+</script>
+<script>
+(function(){
+"use strict";
+var D=window.MintedData, $=function(id){ return document.getElementById(id); };
+var esc=function(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); };
+var MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], MONL=["January","February","March","April","May","June","July","August","September","October","November","December"];
+function dshort(s){ if(!s||s==="Cancelled") return s||""; var p=String(s).slice(0,10).split("-"); return MON[+p[1]-1]+" "+(+p[2]); }
+function mname(m){ var p=m.split("-"); return MONL[+p[1]-1]+" "+p[0]; }
+function usd(x){ return "$"+Number(x||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function n0(x){ return Number(x||0).toLocaleString("en-US"); }
+function pill(c,t){ return '<span class="pill '+c+'">'+esc(t)+'</span>'; }
+var toastT; function toast(t){ var e=$("toast"); e.textContent=t; e.hidden=false; clearTimeout(toastT); toastT=setTimeout(function(){ e.hidden=true; },3200); }
+function copyText(t,label){ var ok=function(){ toast(label); }, fb=function(){ var a=document.createElement("textarea"); a.value=t; a.style.position="fixed"; a.style.opacity="0"; document.body.appendChild(a); a.select(); var r=false; try{ r=document.execCommand("copy"); }catch(e){} a.remove(); toast(r?label:"Select the rows and copy them by hand"); }; try{ navigator.clipboard.writeText(t).then(ok,fb); }catch(e){ fb(); } }
+function csvCell(v){ v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function shiftMonth(m,d){ var p=m.split("-"), y=+p[0], mo=+p[1]-1+d; y+=Math.floor(mo/12); mo=((mo%12)+12)%12; return y+"-"+String(mo+1).padStart(2,"0"); }
+
+var COLS=["Partner","Type","Product","PO Issued Date","Expected Ship Date","PO#","PO $","Total Qty","FOB Point","Shipped Date","Delivered Date","Shipping Cost","Tracking #"];
+var FIELDS=["PO $","Total Qty","Expected Ship Date","Shipping Cost","Tracking #"];
+var S={data:null, month:"", view:"new", page:0};
+
+/* ---------- load ---------- */
+function load(month, refresh){
+  $("out").innerHTML='<div class="loading">Building the rows for '+(month?esc(mname(month)):"the latest month")+' and checking each one against the tracker…</div>';
+  return D.call("minted_billing_report",{month:month,limit:1000},{refresh:refresh}).then(function(p){
+    S.data=p; S.month=p.period&&p.period.month||month; S.page=0;
+    $("month").value=S.month;
+    var s=p.summary||{};
+    if(!refresh) S.view = s.not_in_tracker ? "new" : s.in_tracker_different ? "differs" : "matches";
+    $("conn").className="conn ok"; $("conn").lastChild.textContent="Live from Ekyam";
+    render();
+  },function(e){
+    $("conn").className="conn bad"; $("conn").lastChild.textContent="Not loaded";
+    $("out").innerHTML='<div class="card"><div class="msg err">'+esc(D.explain(e))+'</div></div>';
+  });
+}
+$("month").addEventListener("change",function(){ if(/^\d{4}-\d{2}$/.test(this.value)) load(this.value,false); });
+$("prev").onclick=function(){ if(S.month) load(shiftMonth(S.month,-1),false); };
+$("next").onclick=function(){ if(S.month) load(shiftMonth(S.month,1),false); };
+$("refresh").onclick=function(){ load(S.month,true).then(function(){ toast("Rows rebuilt from the graph"); }); };
+
+/* ---------- buckets ---------- */
+function bucket(r){
+  if(r.tracker_check==="not in tracker") return "new";
+  if(r.tracker_check==="differs") return "differs";
+  if(r["Expected Ship Date"]==="Cancelled") return "cancelled";
+  return "matches";
+}
+function parseDiff(d){
+  var f=["Expected Ship Date","Shipping Cost","Tracking #","Total Qty","PO $"].filter(function(x){ return d.indexOf(x+" ")===0; })[0];
+  if(!f){ var m=/^tracker has (\w+), we have (\w+)$/.exec(d); return m?{field:"Status",tracker:m[1],ours:m[2]}:{field:"",tracker:"",ours:d}; }
+  var rest=d.slice(f.length+1).split(" vs ");
+  return {field:f,tracker:rest[0],ours:rest[1]};
+}
+
+function render(){
+  var p=S.data, s=p.summary||{}, rows=p.rows||[], m=S.month;
+  $("h1").textContent="DoorDash POs issued in "+mname(m)+" against the accounting PO tracker";
+  if(!rows.length){ $("out").innerHTML='<div class="card"><div class="msg info">No DoorDash POs issued in '+esc(mname(m))+' are in Minted\'s data. Try another month.</div></div>'; return; }
+  var B={new:[],differs:[],matches:[],cancelled:[]}; rows.forEach(function(r){ B[bucket(r)].push(r); });
+  var toBillPO=B.new.reduce(function(t,r){ return t+(r["PO $"]||0); },0);
+  var toBillShip=B.new.reduce(function(t,r){ return t+(typeof r["Shipping Cost"]==="number"?r["Shipping Cost"]:0); },0);
+  var billedPO=B.matches.concat(B.differs).reduce(function(t,r){ return t+(r["PO $"]||0); },0);
+  var billedShip=B.matches.concat(B.differs).reduce(function(t,r){ return t+(typeof r["Shipping Cost"]==="number"?r["Shipping Cost"]:0); },0);
+  var gap=0; B.differs.forEach(function(r){ (r.differences||[]).map(parseDiff).forEach(function(d){ if(d.field==="PO $"||d.field==="Shipping Cost"){ var a=parseFloat(d.ours)-parseFloat(d.tracker); if(isFinite(a)) gap+=a; } }); });
+
+  /* verdict */
+  var inT=B.matches.length+B.cancelled.length+B.differs.length;
+  var big = B.new.length
+    ? '<em>'+n0(B.new.length)+'</em> of '+n0(rows.length)+' POs aren\'t in the tracker yet: <em>'+usd(toBillPO+toBillShip)+'</em> to bill.'
+    : '<strong>All '+n0(rows.length)+' POs are in the tracker.</strong>';
+  var dis = '<b style="color:var(--red)">'+n0(B.differs.length)+(B.differs.length===1?" disagrees":" disagree")+'</b> with the order'+(gap?' ('+usd(Math.abs(gap))+(gap>0?" under-billed":" over-billed")+')':'')+'.';
+  var sub = B.new.length
+    ? (B.differs.length ? n0(inT)+' are in the tracker; '+dis : n0(inT)+' are in the tracker and every one matches PO $, quantity, expected ship date, shipping and tracking.')
+    : (B.differs.length ? dis : 'Every one matches PO $, quantity, expected ship date, shipping and tracking.')
+    + (B.cancelled.length?' '+n0(B.cancelled.length)+' cancelled.':'');
+  var tot=rows.length, seg=function(n,c,l){ return n?'<span style="width:'+(n/tot*100)+'%;background:'+c+'" title="'+l+': '+n+'"></span>':''; };
+
+  /* day strip */
+  var days={}; rows.forEach(function(r){ var d=r["PO Issued Date"]; if(!d) return; var k=bucket(r); days[d]=days[d]||{new:0,differs:0,matches:0,cancelled:0}; days[d][k]++; });
+  var dk=Object.keys(days).sort();
+  var firstNew=dk.filter(function(d){ return days[d].new>0; })[0];
+  var lastIn=dk.filter(function(d){ return (!firstNew||d<firstNew)&&days[d].matches+days[d].differs+days[d].cancelled>0; }).slice(-1)[0];
+  var chart=dayChart(dk,days);
+  var cap = B.new.length&&lastIn&&firstNew ? 'Every PO issued through <b>'+dshort(lastIn)+'</b> is in the tracker. From <b>'+dshort(firstNew)+'</b> on, '+n0(B.new.length)+' are still to add.' : B.new.length ? 'POs issued from '+dshort(firstNew)+' on are still to add.' : 'Every day of the month is in the tracker.';
+
+  var tabs=[["new","To add to the tracker",B.new.length,"amb"],["differs","Differs",B.differs.length,"red"],["matches","Matches",B.matches.length,"grn"],["cancelled","Cancelled",B.cancelled.length,""]];
+  if(!B[S.view].length && B.new.length) S.view="new";
+
+  $("out").innerHTML=
+    '<section class="verdict"><p class="big">'+big+'</p><p class="sub">'+sub+'</p>'+
+      '<div class="recon">'+seg(B.matches.length,"var(--grn-m)","Matches")+seg(B.differs.length,"var(--red)","Differs")+seg(B.cancelled.length,"var(--gry-m)","Cancelled")+seg(B.new.length,"var(--amb-m)","Not in tracker")+'</div>'+
+      '<div class="legend"><span><i style="background:var(--grn-m)"></i>Matches <b>'+n0(B.matches.length)+'</b></span><span><i style="background:var(--red)"></i>Differs <b>'+n0(B.differs.length)+'</b></span><span><i style="background:var(--gry-m)"></i>Cancelled <b>'+n0(B.cancelled.length)+'</b></span><span><i style="background:var(--amb-m)"></i>Not in tracker yet <b>'+n0(B.new.length)+'</b></span></div>'+
+      '<div class="money"><div><span>Already in the tracker</span><b>'+usd(billedPO+billedShip)+'</b><small>'+usd(billedPO)+' cards + '+usd(billedShip)+' shipping</small></div>'+
+      '<div><span>To add and bill</span><b style="color:var(--amb)">'+usd(toBillPO+toBillShip)+'</b><small>'+usd(toBillPO)+' cards + '+usd(toBillShip)+' shipping</small></div>'+
+      '<div><span>Month total, billable POs</span><b>'+usd((s.po_amount||0)+(s.shipping_charges||0))+'</b><small>'+n0(s.billable_orders)+' POs at DoorDash prices</small></div>'+
+      (B.differs.length?'<div><span>Disagreements</span><b style="color:var(--red)">'+n0(B.differs.length)+'</b><small>'+(gap?usd(Math.abs(gap))+(gap>0?" more owed than the tracker shows":" less owed than the tracker shows"):"no dollar effect")+'</small></div>':'')+
+      '</div></section>'+
+    '<div class="card"><div class="card-h"><h2>POs by issue date</h2><span class="sub">'+cap+'</span></div><div class="chart card-b">'+chart+'</div></div>'+
+    '<div class="card" id="rows"><nav class="tabs" role="tablist">'+tabs.map(function(t){ return '<button class="tab'+(S.view===t[0]?" on":"")+'" type="button" data-v="'+t[0]+'">'+t[1]+'<span class="n '+(t[2]?t[3]:"")+'">'+n0(t[2])+'</span></button>'; }).join("")+'</nav><div id="pane"></div></div>';
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"),function(b){ b.onclick=function(){ S.view=b.getAttribute("data-v"); S.page=0; Array.prototype.forEach.call(document.querySelectorAll(".tab"),function(x){ x.classList.toggle("on",x===b); }); renderPane(B); }; });
+  renderPane(B);
+}
+
+function dayChart(dk,days){
+  if(!dk.length) return "";
+  var W=900,H=190,pl=36,pr=8,pt=12,pb=30, max=1;
+  dk.forEach(function(d){ var t=days[d]; max=Math.max(max,t.new+t.differs+t.matches+t.cancelled); });
+  var step=max>80?20:max>40?10:5, top=Math.ceil(max/step)*step, iw=W-pl-pr, ih=H-pt-pb, bw=iw/dk.length;
+  var y=function(v){ return pt+ih-(v/top)*ih; };
+  var g="";
+  for(var v=0; v<=top; v+=step) g+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="#e8edf4"/><text x="'+(pl-6)+'" y="'+(y(v)+4)+'" text-anchor="end" font-size="11" fill="#5d6878">'+v+'</text>';
+  var order=[["matches","#5fae8a"],["differs","#c62828"],["cancelled","#c3cbd6"],["new","#e0a030"]];
+  dk.forEach(function(d,i){
+    var x=pl+i*bw+bw*0.15, w=bw*0.7, acc=0, t=days[d];
+    order.forEach(function(o){ var n=t[o[0]]; if(!n) return; g+='<rect x="'+x+'" y="'+y(acc+n)+'" width="'+w+'" height="'+(y(acc)-y(acc+n))+'" fill="'+o[1]+'" data-tip="'+esc(dshort(d)+": "+(t.new+t.differs+t.matches+t.cancelled)+" POs issued|"+(t.matches?t.matches+" match the tracker|":"")+(t.differs?t.differs+" differ|":"")+(t.cancelled?t.cancelled+" cancelled|":"")+(t.new?t.new+" not in the tracker yet":"")).replace(/\|$/,"")+'"></rect>'; acc+=n; });
+    if(dk.length<=24||i%2===0) g+='<text x="'+(x+w/2)+'" y="'+(H-pb+16)+'" text-anchor="middle" font-size="10.5" fill="#5d6878">'+dshort(d)+'</text>';
+  });
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="POs per issue date, by tracker status">'+g+'</svg>';
+}
+
+function rowCells(r){ return COLS.map(function(c){ var v=r[c]; if(c==="PO $"||c==="Shipping Cost") return typeof v==="number"?usd(v):esc(v||""); if(c==="Tracking #") return '<span class="mono">'+esc(v||"")+'</span>'; if(/Date/.test(c)) return v?esc(v==="Cancelled"?v:dshort(v)):'<span class="mut">—</span>'; return esc(v==null?"":v); }); }
+
+function renderPane(B){
+  var v=S.view, list=B[v], PS=50, pages=Math.max(1,Math.ceil(list.length/PS)); if(S.page>=pages) S.page=0;
+  var page=list.slice(S.page*PS,(S.page+1)*PS), h="";
+  var pager=list.length>PS?'<div class="pager"><span>'+(S.page*PS+1)+'–'+Math.min(list.length,(S.page+1)*PS)+' of '+n0(list.length)+'</span><button class="btn sm" type="button" id="pp"'+(S.page?'':' disabled')+'>Previous</button><button class="btn sm" type="button" id="pn"'+(S.page<pages-1?'':' disabled')+'>Next</button></div>':'';
+  if(!list.length){
+    h='<div class="msg '+(v==="new"||v==="differs"?"ok":"info")+'">'+({new:"Nothing to add: every PO this month is in the tracker.",differs:"No disagreements: every tracker line matches the order.",matches:"No matching rows this month.",cancelled:"No cancelled POs this month."})[v]+'</div>';
+  } else if(v==="new"){
+    var notes=list.filter(function(r){ return r.note; }).length;
+    h='<div class="bar"><span class="hint">Rows follow the PO Tracker tab column for column (B to V; the Target-only columns stay blank), ready to paste below the last line accounting entered.'+(notes?' '+n0(notes)+' carry a note.':'')+'</span><span class="sp"></span>'+
+      '<button class="btn sm" type="button" id="cp">Copy '+n0(list.length)+' rows</button><button class="btn sm pri" type="button" id="xl">Download Excel</button><button class="btn sm" type="button" id="cs">CSV</button></div>'+
+      '<div class="scroll"><table><thead><tr>'+COLS.map(function(c){ return '<th'+(c==="PO $"||c==="Total Qty"||c==="Shipping Cost"?' class="num"':'')+'>'+esc(c)+'</th>'; }).join("")+'<th>Note</th></tr></thead><tbody>'+
+      page.map(function(r){ var c=rowCells(r); return '<tr>'+c.map(function(x,i){ var col=COLS[i]; return '<td'+(col==="PO $"||col==="Total Qty"||col==="Shipping Cost"?' class="num"':'')+'>'+x+'</td>'; }).join("")+'<td class="sm mut">'+esc(r.note||(r.shipped_date_source==="ctl"?"Shipped date from CTL":""))+'</td></tr>'; }).join("")+'</tbody></table></div>'+pager;
+  } else if(v==="differs"){
+    h=list.map(function(r){
+      var ds=(r.differences||[]).map(parseDiff), imp=0;
+      ds.forEach(function(d){ if(d.field==="PO $"||d.field==="Shipping Cost"){ var a=parseFloat(d.ours)-parseFloat(d.tracker); if(isFinite(a)) imp+=a; } });
+      return '<div class="diff"><div class="diff-h"><b>'+esc(r["PO#"])+'</b><span class="sm mut">issued '+dshort(r["PO Issued Date"])+' · tracker row '+esc(r.tracker_row)+' · '+usd(r["PO $"])+' · '+n0(r["Total Qty"])+' cards</span>'+pill("p-red","Differs")+'</div>'+
+        '<div class="scroll"><table><thead><tr><th>Field</th><th>In the tracker</th><th>From the order, CTL and FedEx</th></tr></thead><tbody>'+
+        ds.map(function(d){ var money=d.field==="PO $"||d.field==="Shipping Cost"; return '<tr><td>'+esc(d.field)+'</td><td class="'+(d.field==="Tracking #"?"mono":"")+'">'+esc(money&&isFinite(parseFloat(d.tracker))?usd(parseFloat(d.tracker)):d.tracker)+'</td><td class="'+(d.field==="Tracking #"?"mono":"")+'"><b>'+esc(money&&isFinite(parseFloat(d.ours))?usd(parseFloat(d.ours)):d.ours)+'</b></td></tr>'; }).join("")+
+        '</tbody></table></div>'+(imp?'<div class="impact">'+(imp>0?"The tracker is "+usd(imp)+" short for this PO.":"The tracker shows "+usd(-imp)+" more than the order.")+'</div>':'')+'</div>';
+    }).join("");
+  } else if(v==="matches"){
+    h='<div class="bar"><span class="hint">Each row agrees with the tracker on all five checked fields.</span></div><div class="scroll"><table><thead><tr><th>PO#</th><th>Issued</th><th class="num">PO $</th><th class="num">Qty</th><th>Expected ship</th><th class="num">Shipping</th><th>Tracking #</th><th class="num">Tracker row</th><th>Checked</th></tr></thead><tbody>'+
+      page.map(function(r){ return '<tr><td class="mono">'+esc(r["PO#"])+'</td><td>'+dshort(r["PO Issued Date"])+'</td><td class="num">'+usd(r["PO $"])+'</td><td class="num">'+n0(r["Total Qty"])+'</td><td>'+dshort(r["Expected Ship Date"])+'</td><td class="num">'+(typeof r["Shipping Cost"]==="number"?usd(r["Shipping Cost"]):esc(r["Shipping Cost"]))+'</td><td class="mono">'+esc(r["Tracking #"]||"")+'</td><td class="num">'+esc(r.tracker_row)+'</td><td><span class="ticks"><i title="PO $">$</i><i title="Total Qty">Qty</i><i title="Expected ship date">Ship</i><i title="Shipping charge">Frt</i><i title="Tracking #">Trk</i></span></td></tr>'; }).join("")+
+      '</tbody></table></div>'+pager;
+  } else {
+    h='<div class="bar"><span class="hint">Written as accounting writes them: $0 and "Cancelled". A seasonal card in an everyday order counts as cancelled.</span></div><div class="scroll"><table><thead><tr><th>PO#</th><th>Issued</th><th>Type</th><th>Why</th><th>In the tracker</th></tr></thead><tbody>'+
+      page.map(function(r){ return '<tr><td class="mono">'+esc(r["PO#"])+'</td><td>'+dshort(r["PO Issued Date"])+'</td><td>'+esc(r.Type)+'</td><td>'+esc(r.note||"Cancelled")+'</td><td>'+(r.tracker_check==="matches"?pill("p-grn","Cancelled there too"):pill("p-red",r.tracker_check))+'</td></tr>'; }).join("")+
+      '</tbody></table></div>'+pager;
+  }
+  $("pane").innerHTML=h;
+  if($("pp")) $("pp").onclick=function(){ S.page--; renderPane(B); };
+  if($("pn")) $("pn").onclick=function(){ S.page++; renderPane(B); };
+  if(v==="new"&&list.length){
+    var base="DoorDash PO tracker rows "+S.month;
+    $("cp").onclick=function(){ copyText(MX.trackerTSV(list),"Copied "+list.length+" rows: click column B (Partner) of the first empty row in the PO Tracker tab and paste"); };
+    $("cs").onclick=function(){ D.save(base+".csv",MX.trackerCSV(list),"text/csv").then(function(){ toast("Saved "+base+".csv"); },saveFail); };
+    $("xl").onclick=function(){
+      var wb; try{ wb=MX.trackerBook(list); }catch(e){ toast("Excel export isn't available here; use Copy or CSV"); return; }
+      MX.download(wb,base+".xlsx").then(function(){ toast("Saved "+base+".xlsx"); },saveFail);
+    };
+  }
+}
+function saveFail(e){ if(!e||e.code!=="cancelled") toast(e&&e.code==="no_downloads"?"Downloads aren't available here; use Copy":"The file was not saved"); }
+
+
+/* chart tooltips: hover on desktop, tap on touch (SVG <title> tooltips don't show in every viewer) */
+(function(){
+  function tipFor(chart){ var t=chart.querySelector(".ctip"); if(!t){ t=document.createElement("div"); t.className="ctip"; t.hidden=true; chart.appendChild(t); } return t; }
+  function show(e){
+    var el=e.target.closest&&e.target.closest("[data-tip]"); var chart=e.target.closest&&e.target.closest(".chart");
+    if(!chart) return;
+    var t=tipFor(chart);
+    if(!el){ t.hidden=true; return; }
+    var parts=el.getAttribute("data-tip").split("|");
+    t.innerHTML="<b>"+parts[0].replace(/</g,"&lt;")+"</b>"+parts.slice(1).map(function(x){ return x.replace(/</g,"&lt;"); }).join("<br>");
+    t.hidden=false;
+    var r=chart.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+    var w=t.offsetWidth, h=t.offsetHeight;
+    t.style.left=Math.max(4,Math.min(r.width-w-4,x-w/2))+"px";
+    t.style.top=Math.max(4,y-h-14)+"px";
+  }
+  document.addEventListener("mousemove",show);
+  document.addEventListener("click",show);
+  document.addEventListener("mouseleave",function(){ Array.prototype.forEach.call(document.querySelectorAll(".ctip"),function(t){ t.hidden=true; }); },true);
+})();
+
+/* ---------- boot ---------- */
+D.init().then(function(mode){
+  if(mode==="none"){ $("conn").className="conn bad"; $("conn").lastChild.textContent="Not connected"; $("out").innerHTML='<div class="card"><div class="msg err">'+esc(D.explain({code:"no_connection"}))+'</div></div>'; return; }
+  var h=location.hash.slice(1), m=/^m(\d{4})(\d{2})$/.exec(h);
+  load(m?m[1]+"-"+m[2]:"",false);
+});
+})();
+</script>

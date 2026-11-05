@@ -1,0 +1,28 @@
+# Local testing with Docker.
+#   Real Ekyam Dev MCP server:  docker compose up --build            (uses .env)
+#   Fake MCP server (no access needed):  docker compose --profile fake up --build
+#     and set in .env:  EKYAM_MCP_URL=http://fake-mcp:9000/mcp/  MCP_AUTH_MODE=oauth
+#                       MCP_OAUTH_CLIENT_ID=demo  MCP_OAUTH_CLIENT_SECRET=s3cret
+services:
+  minted:
+    build:
+      context: .
+      args:
+        WITH_LIBREOFFICE: "0"      # "1" to recalculate Excel formulas on the server
+    env_file: .env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  fake-mcp:
+    profiles: ["fake"]
+    build: .
+    command: ["python", "tests/fake_mcp_server.py"]
+    environment:
+      FAKE_CLIENT_ID: demo
+      FAKE_CLIENT_SECRET: s3cret
+      PORT: "9000"
+    volumes:
+      - ./tests:/srv/tests:ro
+    ports:
+      - "9000:9000"

@@ -1,0 +1,718 @@
+{
+ "minted_billing_report": {
+  "params": {
+   "type": "object",
+   "properties": {
+    "month": {
+     "type": "string",
+     "description": "YYYY-MM by PO issued (placed) date. Default: the latest month with SPS order detail"
+    },
+    "rows": {
+     "type": "string",
+     "description": "which rows to return: 'all' (default), 'new' (not in the tracker yet), 'differences' (in the tracker but not matching), 'cancelled'"
+    },
+    "offset": {
+     "type": "integer",
+     "description": "skip this many rows of the selected set (default 0)"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "rows to return (default 500, max 1000)"
+    },
+    "refresh": {
+     "type": "boolean",
+     "description": "true = ignore the cached month and re-read it (default false)"
+    }
+   },
+   "required": []
+  },
+  "example": {
+   "success": true,
+   "cached": false,
+   "period": {
+    "month": "2026-09",
+    "start": "2026-09-01",
+    "end": "2026-09-30",
+    "basis": "PO issued (placed) date"
+   },
+   "summary": {
+    "orders": 579,
+    "billable_orders": 579,
+    "cancelled": 0,
+    "short_shipped": 0,
+    "po_amount": 12650.0,
+    "shipping_charges": 4980.0,
+    "in_tracker_matching": 473,
+    "in_tracker_different": 0,
+    "not_in_tracker": 106,
+    "not_in_tracker_amount": 2247.27
+   },
+   "rows": [
+    {
+     "Partner": "DoorDash",
+     "Type": "Everyday",
+     "Product": "Greeting Cards",
+     "PO Issued Date": "2026-09-30",
+     "Expected Ship Date": "2026-10-09",
+     "PO#": "POA000163948",
+     "PO $": 18.55,
+     "Total Qty": 5,
+     "FOB Point": "Destination",
+     "Shipped Date": "2026-10-01",
+     "Delivered Date": "2026-10-05",
+     "Shipping Cost": 8.6,
+     "Tracking #": "877999684150",
+     "tracker_check": "matches",
+     "differences": [],
+     "note": "",
+     "shipped_date_source": "fedex"
+    }
+   ],
+   "columns": [],
+   "definitions": [],
+   "data_notes": []
+  }
+ },
+ "minted_build_everyday_po": {
+  "params": {
+   "type": "object",
+   "properties": {
+    "lines": {
+     "type": "string",
+     "description": "optional 'card:qty' pairs separated by commas, where card is a SKU (UPC+DD), UPC or style code, e.g. '843740132460DD:240, MIN-QAN-NCG:480'. Blank = use the reorder plan"
+    },
+    "include": {
+     "type": "string",
+     "description": "when lines is blank: 'all_needed' (default, every card short of target) or 'order_now' (only cards that run out within the lead time)"
+    },
+    "po_date": {
+     "type": "string",
+     "description": "YYYY-MM-DD order date. Default: today"
+    },
+    "weeks": {
+     "type": "integer",
+     "description": "reorder plan: weeks of shipments to average (default 12)"
+    },
+    "target_weeks": {
+     "type": "integer",
+     "description": "reorder plan: weeks of cover to order up to (default 12)"
+    },
+    "lead_time_weeks": {
+     "type": "integer",
+     "description": "reorder plan: weeks from PO to cards at CTL (default 6)"
+    }
+   },
+   "required": []
+  },
+  "example": {
+   "success": true,
+   "status": "draft - needs approval before sending to Marathon",
+   "header": {
+    "po_name": "DDED103126",
+    "order_date": "2026-10-31",
+    "ship_date": "2026-11-14",
+    "delivery_date": "2026-11-21",
+    "vendor": {},
+    "final_destination": {},
+    "shipping_method": "Fedex Freight",
+    "shipping_terms": "Minted Acct# 205061920",
+    "customer_id": "Minted"
+   },
+   "lines": [
+    {
+     "sku_number": "MIN-Y77-NCF",
+     "upc": "843740132460",
+     "upc_c_box": "843740132460DD",
+     "description": "Daisy Thanks",
+     "print_type": "Foil",
+     "envelope_type": "White",
+     "foil_color": "Bronze",
+     "prod_qty": 240,
+     "unit_cost": 0.4,
+     "total_cost": 96.0,
+     "reason": "add to next PO: 14.0 weeks of stock"
+    }
+   ],
+   "envelope_summary": [
+    {
+     "envelope": "White",
+     "minted_item": "19238",
+     "prod_qty": 240
+    }
+   ],
+   "totals": {
+    "lines": 1,
+    "cards": 240,
+    "c_boxes": 1.0,
+    "total_cost": 96.0
+   },
+   "template": {},
+   "warnings": []
+  }
+ },
+ "minted_build_seasonal_po": {
+  "params": {
+   "type": "object",
+   "properties": {
+    "program": {
+     "type": "string",
+     "description": "seasonal program on the orders, e.g. 'Holiday', 'Mother's Day' (default 'Holiday'; blank = any seasonal program)"
+    },
+    "date_from": {
+     "type": "string",
+     "description": "YYYY-MM-DD: orders placed (or, if no placed date, due) on or after this date. Default: no lower bound"
+    },
+    "date_to": {
+     "type": "string",
+     "description": "YYYY-MM-DD: orders placed (or due) on or before this date. Default: no upper bound"
+    },
+    "season_code": {
+     "type": "string",
+     "description": "letters for the PO name, e.g. HOL, MD, GR (default HOL)"
+    },
+    "po_date": {
+     "type": "string",
+     "description": "YYYY-MM-DD order date for the PO name and header. Default: today"
+    },
+    "delivery_date": {
+     "type": "string",
+     "description": "YYYY-MM-DD date the cards must reach DoorDash. Default: the earliest due date on the orders"
+    },
+    "refresh": {
+     "type": "boolean",
+     "description": "true = ignore the cached result and recompute (default false)"
+    }
+   },
+   "required": []
+  },
+  "example": {
+   "success": true,
+   "cached": false,
+   "header": {
+    "po_name": "DDHOL102325",
+    "order_date": "2025-10-23",
+    "delivery_date": "2025-11-14",
+    "ship_date": "2025-11-07",
+    "vendor": {},
+    "final_destination": "See Distribution PO",
+    "shipping_method": "FedEx",
+    "shipping_terms": "Minted Acct# 205061920"
+   },
+   "summary": {
+    "orders_in_scope": 152,
+    "orders_on_po": 152,
+    "excluded_mixed": 0,
+    "locations": 152,
+    "cards": 9120,
+    "total_cost": 3283.2
+   },
+   "master_lines": [
+    {
+     "sku_number": "MIN-Y7V-NCF",
+     "upc": "843740132965",
+     "description": "Minted Toasty Gingerbread Holiday Card",
+     "print_type": "Foil",
+     "envelope_type": "White",
+     "foil_color": null,
+     "prod_qty": 1824,
+     "unit_cost": 0.4,
+     "total_cost": 729.6
+    }
+   ],
+   "distribution": [
+    {
+     "PurchaseNumber": "PO200154428",
+     "Carrier": "FEDEX",
+     "Service": "GROUND",
+     "FedexAccount": "205061920",
+     "ShipToName": "DEN-3",
+     "ShipToAddr1": "3449 Chambers Road",
+     "ShipToAddr2": "UNIT F",
+     "ShipToCity": "Aurora",
+     "ShipToStateOrProvince": "CO",
+     "ShipToPostalCode": "80011",
+     "ShipToCountryCode": "US",
+     "UPC": "843740132965",
+     "ItemDesc": "Minted Toasty Gingerbread Holiday Card",
+     "Qty": 12
+    }
+   ],
+   "excluded_orders": [],
+   "envelope_summary": [],
+   "template": {},
+   "warnings": []
+  }
+ },
+ "minted_cards_by_location": {
+  "params": {
+   "type": "object",
+   "properties": {
+    "card": {
+     "type": "string",
+     "description": "optional: part of a card name, SKU (UPC+DD) or Minted style code. Empty = all cards"
+    },
+    "weeks": {
+     "type": "integer",
+     "description": "how many report weeks, ending at end_week (default 12, 1-16)"
+    },
+    "end_week": {
+     "type": "string",
+     "description": "YYYY-MM-DD report date (Monday) of the last week. Default: the latest week loaded"
+    },
+    "top_n": {
+     "type": "integer",
+     "description": "how many locations and cities to list (default 20, 1-200)"
+    },
+    "refresh": {
+     "type": "boolean",
+     "description": "true = ignore the cached result and recompute (default false)"
+    }
+   },
+   "required": []
+  },
+  "example": {
+   "success": true,
+   "cached": false,
+   "period": {
+    "first_week": "2026-08-10",
+    "last_week": "2026-10-26",
+    "weeks": 12,
+    "ship_from": "2026-08-01",
+    "ship_to": "2026-10-23",
+    "basis": "CTL report weeks (Saturday-Friday, dated the following Monday)"
+   },
+   "cards_matched": [
+    {
+     "sku": "843740116316DD",
+     "card": "Love is around you",
+     "style": "MIN-1P8-NCG"
+    }
+   ],
+   "summary": {
+    "cards_shipped": 1241,
+    "cards_with_location": 1173,
+    "cards_without_location": 68,
+    "locations": 133,
+    "cities": 122,
+    "orders": 586,
+    "top_location": {
+     "location": "SFO-1",
+     "city": "San Francisco",
+     "state": "CA",
+     "cards": 36
+    },
+    "top_city": {
+     "city": "Chicago",
+     "state": "IL",
+     "cards": 47
+    },
+    "top_10_locations_share_pct": 21.2
+   },
+   "locations": [
+    {
+     "rank": 1,
+     "location": "SFO-1",
+     "city": "San Francisco",
+     "state": "CA",
+     "cards": 36,
+     "orders": 3,
+     "cards_per_order": 12.0,
+     "share_pct": 3.1,
+     "top_card": null,
+     "top_card_units": null
+    }
+   ],
+   "cities": [
+    {
+     "rank": 1,
+     "city": "Chicago",
+     "state": "IL",
+     "locations": 2,
+     "cards": 47,
+     "orders": 23,
+     "share_pct": 4.0
+    }
+   ],
+   "definitions": [],
+   "data_notes": [
+    "Week 2026-08-24 has no CTL report, only Minted's sheet total (68 cards), so those cards have no location."
+   ]
+  }
+ },
+ "minted_delivery_status": {
+  "params": {
+   "type": "object",
+   "properties": {
+    "ship_from": {
+     "type": "string",
+     "description": "YYYY-MM-DD: CTL ship date on or after (default: 28 days before ship_to)"
+    },
+    "ship_to": {
+     "type": "string",
+     "description": "YYYY-MM-DD: CTL ship date on or before (default: the latest CTL ship date loaded)"
+    },
+    "location": {
+     "type": "string",
+     "description": "optional DoorDash location code, e.g. ATL-2"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "how many open packages to list (default 100, max 500)"
+    },
+    "refresh": {
+     "type": "boolean",
+     "description": "true = ignore the cached result and recompute (default false)"
+    }
+   },
+   "required": []
+  },
+  "example": {
+   "success": true,
+   "cached": false,
+   "period": {
+    "ship_from": "2026-09-25",
+    "ship_to": "2026-10-22",
+    "basis": "CTL ship date",
+    "as_of": "2026-10-22"
+   },
+   "summary": {
+    "packages": 412,
+    "delivered": 300,
+    "in_transit": 6,
+    "out_for_delivery": 3,
+    "exception": 4,
+    "label_created": 0,
+    "no_fedex_update": 99,
+    "avg_days_to_deliver": 3.1
+   },
+   "open_packages": [
+    {
+     "tracking": "878...",
+     "po": "POA000...",
+     "location": "ATL-2",
+     "ctl_shipped": "2026-10-22",
+     "status": "exception",
+     "fedex_detail": "...",
+     "days_since_ship": 0
+    }
+   ],
+   "slowest_locations": [
+    {
+     "location": "HNL-1",
+     "delivered": 3,
+     "avg_days": 7.0
+    }
+   ],
+   "definitions": [],
+   "data_notes": []
+  }
+ },
+ "minted_order_check": {
+  "params": {
+   "type": "object",
+   "properties": {
+    "date_from": {
+     "type": "string",
+     "description": "YYYY-MM-DD: orders placed on or after this date (default: all)"
+    },
+    "date_to": {
+     "type": "string",
+     "description": "YYYY-MM-DD: orders placed on or before this date (default: all)"
+    },
+    "po_number": {
+     "type": "string",
+     "description": "check one DoorDash PO, e.g. POA000087985"
+    },
+    "show": {
+     "type": "string",
+     "description": "which orders to list: 'mixed' (default), 'seasonal', 'everyday' or 'all'"
+    },
+    "limit": {
+     "type": "integer",
+     "description": "how many orders to list (default 100, max 500)"
+    },
+    "refresh": {
+     "type": "boolean",
+     "description": "true = ignore the cached result and recompute (default false)"
+    }
+   },
+   "required": []
+  },
+  "example": {
+   "success": true,
+   "cached": false,
+   "period": {
+    "date_from": "2026-07-01",
+    "date_to": "2026-09-30",
+    "basis": "order placed date (SPS PO date)"
+   },
+   "summary": {
+    "orders_checked": 1700,
+    "everyday": 1699,
+    "seasonal": 0,
+    "mixed": 1,
+    "no_line_detail": 120,
+    "mixed_cancelled": 1,
+    "mixed_not_cancelled": 0,
+    "lines_using_doordash_alt_upc": 112
+   },
+   "orders": [
+    {
+     "po": "POA000087985",
+     "placed": "2026-07-27",
+     "ship_to": "AGS-1",
+     "status": "CANCELLED",
+     "class": "mixed",
+     "seasonal_cards": [
+      "Minted Hydrangea Bouquet Mother's Day Greeting Card"
+     ],
+     "everyday_cards": [
+      "Where the Year Leads"
+     ],
+     "flag_date": "2026-07-27",
+     "doordash_asked": "2026-08-06",
+     "days_earlier_than_doordash_email": 10,
+     "events": [],
+     "draft_reply": "..."
+    }
+   ],
+   "definitions": [],
+   "data_notes": []
+  }
+ },
+ "minted_order_trace": {
+  "params": {
+   "type": "object",
+   "properties": {
+    "po_number": {
+     "type": "string",
+     "description": "DoorDash PO number, e.g. POA000163948"
+    }
+   },
+   "required": [
+    "po_number"
+   ]
+  },
+  "example": {
+   "success": true,
+   "found": true,
+   "order": {
+    "po": "POA000163948",
+    "customer": "DoorDash, Inc.",
+    "placed": "2026-09-30",
+    "due": "2026-10-09",
+    "status": "COMPLETED",
+    "program": "Everyday",
+    "po_total": 18.55,
+    "ship_to": {
+     "code": "ATL-2",
+     "street": "1360 Seaboard Industrial Blvd NW",
+     "city": "Atlanta",
+     "state": "GA",
+     "zip": "30318"
+    }
+   },
+   "lines": [
+    {
+     "card": "Passing Notes",
+     "sku": "843740126094DD",
+     "ordered": 3,
+     "shipped": 3,
+     "price": 3.59,
+     "line_total": 10.77,
+     "check": "ok"
+    }
+   ],
+   "shipments": [
+    {
+     "tracking": "877999684150",
+     "ctl_shipped": "2026-09-30",
+     "status": "delivered",
+     "delivered": "2026-10-05T13:51:00",
+     "cards": 5,
+     "days_in_transit": 5
+    }
+   ],
+   "billing": [
+    {
+     "po_amount": 18.55,
+     "total_qty": 5,
+     "shipping_charge": 8.6,
+     "bill_status": "billable",
+     "check": "matches order"
+    }
+   ],
+   "events": [],
+   "checks": {
+    "short_shipped_lines": 0,
+    "over_shipped_lines": 0,
+    "billing_matches": true,
+    "shipping_charge_expected": 8.6
+   },
+   "timeline": [],
+   "draft_reply": "..."
+  }
+ },
+ "minted_reorder_plan": {
+  "params": {
+   "type": "object",
+   "properties": {
+    "weeks": {
+     "type": "integer",
+     "description": "weeks of shipments to average (default 12, 4-16)"
+    },
+    "target_weeks": {
+     "type": "integer",
+     "description": "weeks of stock to cover after ordering (default 12, 4-26)"
+    },
+    "lead_time_weeks": {
+     "type": "integer",
+     "description": "weeks from PO to cards at CTL (default 6, Marathon's 4-6 week upper end; 1-12)"
+    },
+    "pack_size": {
+     "type": "integer",
+     "description": "order in multiples of this many cards (default 240, one c-box)"
+    },
+    "card": {
+     "type": "string",
+     "description": "optional filter: part of a card name, SKU or style code"
+    },
+    "refresh": {
+     "type": "boolean",
+     "description": "true = ignore the cached result and recompute (default false)"
+    }
+   },
+   "required": []
+  },
+  "example": {
+   "success": true,
+   "cached": false,
+   "as_of": {
+    "demand_through_week": "2026-10-26",
+    "demand_from_week": "2026-08-10",
+    "stock_snapshot": "2026-10-23T11:45:05"
+   },
+   "assumptions": {
+    "weeks": 12,
+    "target_weeks": 12,
+    "lead_time_weeks": 6,
+    "pack_size": 240
+   },
+   "summary": {
+    "cards": 29,
+    "order_now": 3,
+    "add_to_next_po": 5,
+    "covered": 19,
+    "no_recent_demand": 2,
+    "cards_to_order": 7680,
+    "packs": 32,
+    "print_cost": 2688.0,
+    "next_po_needed": {
+     "order_by": "2026-12-28",
+     "card": "Cupcake Wishes",
+     "runs_out_on": "2027-03-01"
+    }
+   },
+   "cards": [
+    {
+     "sku": "843740132460DD",
+     "card": "Daisy Thanks",
+     "style": "MIN-Y77-NCF",
+     "upc": "843740132460",
+     "print_type": "Foil",
+     "envelope": "White",
+     "on_hand": 425,
+     "on_order": 0,
+     "open_pos": [],
+     "units_shipped_in_window": 365,
+     "avg_weekly": 30.4,
+     "weeks_of_stock": 14.0,
+     "weeks_of_stock_incl_on_order": 14.0,
+     "target_stock": 364.8,
+     "po_need": -60.2,
+     "order_qty": 0,
+     "runs_out_on": "2027-01-29",
+     "order_by": "2026-12-18",
+     "unit_cost": 0.4,
+     "order_cost": 0.0,
+     "status": "covered"
+    }
+   ],
+   "last_marathon_po": {
+    "po_number": "DDED081026",
+    "ordered": "2026-08-10",
+    "received": "2026-09-08",
+    "lead_time_days": 29
+   },
+   "definitions": [],
+   "data_notes": []
+  }
+ },
+ "minted_weekly_shipped_by_card": {
+  "params": {
+   "type": "object",
+   "properties": {
+    "weeks": {
+     "type": "integer",
+     "description": "how many report weeks to show, ending at end_week (default 12, 1-16)"
+    },
+    "end_week": {
+     "type": "string",
+     "description": "YYYY-MM-DD report date (Monday) of the last week. Default: the latest week loaded"
+    },
+    "card": {
+     "type": "string",
+     "description": "optional filter: part of a card name, SKU (UPC+DD) or Minted style code"
+    },
+    "refresh": {
+     "type": "boolean",
+     "description": "true = ignore the cached result and recompute (default false)"
+    }
+   },
+   "required": []
+  },
+  "example": {
+   "success": true,
+   "cached": false,
+   "period": {
+    "first_week": "2026-08-10",
+    "last_week": "2026-10-26",
+    "weeks": 12,
+    "basis": "CTL report date (Monday after a Saturday-Friday ship week)"
+   },
+   "summary": {
+    "cards": 28,
+    "units_shipped": 9463,
+    "avg_units_per_week": 788.6,
+    "cards_shipping": 22,
+    "cards_stopped": 0,
+    "cards_no_shipments": 6
+   },
+   "weeks": [
+    {
+     "report_week": "2026-10-26",
+     "week_start": "2026-10-17",
+     "week_end": "2026-10-23",
+     "units": 609,
+     "source": "ctl_tracking_report"
+    }
+   ],
+   "cards": [
+    {
+     "sku": "843740116316DD",
+     "card": "Love is around you",
+     "style": "MIN-1P8-NCG",
+     "weekly_units": [
+      96,
+      104
+     ],
+     "total": 1241,
+     "avg_per_week": 103.4,
+     "status": "shipping"
+    }
+   ],
+   "definitions": [],
+   "data_notes": []
+  }
+ }
+}

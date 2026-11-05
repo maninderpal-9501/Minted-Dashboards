@@ -1,0 +1,610 @@
+<title>Minted Graph Census</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="minted-endpoint" content="">
+<meta name="minted-page" content="graph-census">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: what Minted's files became in the shared Ekyam graph: counts, a map of record kinds and links, the isolation check, and which file fed each kind. */
+:root{
+  --bg:#f5f8fc; --card:#ffffff; --line:#e3e8f0; --line2:#eef2f7;
+  --ink:#16202e; --ink2:#3b4656; --mut:#5d6878;
+  --blu:#2f6fed; --blu-bg:#eaf1fe; --navy:#111827;
+  --grn:#127a57; --grn-bg:#e3f4ec; --grn-m:#5fae8a; --amb:#a8580a; --amb-bg:#fdf2dc; --amb-m:#e0a030; --red:#c62828; --red-bg:#fdeaea;
+  --gry-bg:#eef1f5; --gry-m:#c3cbd6; --pur:#6a4bc4; --pur-bg:#efeafc; --sheet:#c9a227;
+  --display:'Inter Tight','Inter',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --body:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:70;background:#fff}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:1260px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:60;background:#fff;border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:14px;padding-block:10px;flex-wrap:wrap}
+.logo{height:26px;display:block}
+.who{font-size:12.5px;color:var(--mut);padding-left:14px;border-left:1px solid var(--line);font-weight:500}
+.who b{color:var(--ink);font-weight:600}
+.sp{flex:1}
+.conn{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--mut);font-weight:500}
+.conn i{width:8px;height:8px;border-radius:50%;background:#b8c1cc;display:inline-block}
+.conn.ok i{background:var(--grn)} .conn.bad i{background:var(--red)}
+.btn{border:1px solid #d5dbe4;background:#fff;border-radius:9px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:#9aa6b5}
+.btn:focus-visible,.seg button:focus-visible,a:focus-visible{outline:2px solid var(--blu);outline-offset:2px}
+.btn.pri{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.pri:hover{background:var(--blu);border-color:var(--blu)}
+.btn.sm{padding:4px 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:default}
+a.lnk{color:var(--blu);font-weight:600;text-decoration:none}
+a.lnk:hover{text-decoration:underline}
+main{padding-block:22px 40px}
+.eyebrow{font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--blu);font-weight:700}
+h1{font:700 24px/1.2 var(--display);margin:4px 0 6px;letter-spacing:-.2px;text-wrap:balance}
+.lede{color:var(--ink2);font-size:13.5px;margin:0 0 16px;max-width:75ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;min-width:0}
+.card-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.card-h h2,.card-h h3{font:600 15px/1.3 var(--display);margin:0}
+.card-h .sub{font-size:12px;color:var(--mut)}
+.card-b{padding:14px 16px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media(max-width:980px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-width:0}
+.kpi .k{font-size:12px;font-weight:600;color:var(--ink2)}
+.kpi .v{font:700 22px/1.2 var(--display);font-variant-numeric:tabular-nums}
+.kpi .d{font-size:11.5px;color:var(--mut)}
+.kpi.good .v{color:var(--grn)} .kpi.bad .v{color:var(--red)} .kpi.warn .v{color:var(--amb)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11.5px;font-weight:600;color:var(--ink2);padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;background:#fbfcfe}
+td{padding:8px 10px;border-bottom:1px solid var(--line2);font-size:13px;white-space:nowrap;vertical-align:middle}
+th:first-child,td:first-child{padding-left:16px} th:last-child,td:last-child{padding-right:16px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:12px}
+.mut{color:var(--mut)} .sm{font-size:11.5px}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-grn{background:var(--grn-bg);color:var(--grn)} .p-amb{background:var(--amb-bg);color:var(--amb)} .p-red{background:var(--red-bg);color:var(--red)}
+.p-blu{background:var(--blu-bg);color:var(--blu)} .p-gry{background:var(--gry-bg);color:var(--mut)} .p-pur{background:var(--pur-bg);color:var(--pur)}
+.seg{display:inline-flex;border:1px solid #d5dbe4;border-radius:999px;overflow:hidden;background:#fff}
+.seg button{border:0;background:none;padding:5px 13px;font-size:12px;font-weight:600;color:var(--mut);cursor:pointer;white-space:nowrap}
+.seg button.on{background:var(--navy);color:#fff}
+label.fld{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2);font-weight:500}
+label.fld select,label.fld input{border:1px solid #d5dbe4;border-radius:8px;padding:5px 8px;background:#fff;font-size:12.5px}
+.msg{border-radius:10px;padding:11px 14px;font-size:13px;line-height:1.5}
+.msg.err{background:var(--red-bg);color:#7d1d1d;border:1px solid #f3c1c1}
+.msg.info{background:var(--blu-bg);color:#1c3d7a;border:1px solid #cddcfa}
+.msg.note{background:var(--amb-bg);color:#6b3f06;border:1px solid #f0dca8}
+.msg.ok{background:var(--grn-bg);color:#0f5a40;border:1px solid #bfe3d1}
+.loading{padding:26px 16px;color:var(--mut)}
+.chart,.tipzone{position:relative}
+.chart svg{display:block;width:100%;height:auto}
+.ctip{position:absolute;z-index:20;pointer-events:none;background:#111827;color:#fff;border-radius:8px;padding:8px 11px;font-size:12px;line-height:1.45;max-width:300px;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+.ctip[hidden]{display:none}
+.ctip b{display:block;font-size:12.5px}
+[data-tip]{cursor:pointer}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--mut);padding:6px 16px 12px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.reply{background:#fbfcfe;border:1px dashed #c8d2e0;border-radius:9px;padding:10px 12px;font-size:12.5px;line-height:1.55;color:var(--ink2);white-space:pre-line}
+.ovl{position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:100;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:max(24px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 24px max(12px,env(safe-area-inset-left,0px))}
+.ovl[hidden]{display:none}
+.modal{background:#fff;border-radius:14px;width:100%;max-width:1000px;box-shadow:0 20px 60px rgba(0,0,0,.25);margin-bottom:24px;min-width:0}
+.modal-h{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.modal-h h2{margin:0;font:700 18px/1.3 var(--display)}
+.modal-b{padding:16px 20px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px 18px;margin-bottom:14px}
+.facts div span{display:block;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+.facts div b{font-weight:600;font-variant-numeric:tabular-nums}
+.toast{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:max(20px,env(safe-area-inset-bottom,0px));background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:200;max-width:380px}
+.toast[hidden]{display:none}
+.foot{font-size:11.5px;color:var(--mut);padding:8px 0 0;line-height:1.6}
+
+.iso{display:flex;gap:14px;align-items:center;padding:14px 16px}
+.iso .big{font:700 30px/1 var(--display);color:var(--grn);min-width:44px;text-align:center}
+.iso.bad .big{color:var(--red)}
+.iso p{margin:0;font-size:13px;color:var(--ink2)} .iso p b{color:var(--ink)}
+.map{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:0}
+@media(max-width:1100px){.map{grid-template-columns:minmax(0,1fr)}}
+.map .chart{border-right:1px solid var(--line2);padding:8px}
+.nd{cursor:pointer} .nd rect{transition:stroke-width .1s}
+.nd:hover rect,.nd.on rect{stroke-width:2.5}
+.nd:focus{outline:none} .nd:focus-visible rect{stroke:#2f6fed;stroke-width:3}
+.ed{transition:opacity .15s}
+.dim .ed{opacity:.12} .dim .ed.hot{opacity:1} .dim .nd{opacity:.35} .dim .nd.hot{opacity:1}
+.det{padding:14px 16px;font-size:13px}
+.det h3{font:700 16px/1.3 var(--display);margin:0 0 2px}
+.det .lab{font-family:var(--mono);font-size:11.5px;color:var(--mut)}
+.det .n{font:700 26px/1.2 var(--display);margin:8px 0 2px;font-variant-numeric:tabular-nums}
+.det dl{margin:10px 0 0;display:grid;grid-template-columns:auto 1fr;gap:4px 10px}
+.det dt{color:var(--mut);font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding-top:2px}
+.det dd{margin:0}
+.det ul{list-style:none;padding:0;margin:6px 0 0}
+.det li{display:grid;grid-template-columns:1fr auto;gap:0 8px;padding:5px 0;border-bottom:1px solid var(--line2);font-size:12.5px}
+.det li .c{font-variant-numeric:tabular-nums;color:var(--mut)}
+.det li .r{grid-column:1/-1;font-family:var(--mono);font-size:10.5px;color:var(--mut)}
+tr.pick{cursor:pointer} tr.pick:hover td{background:#f7f9fc} tr.pick.on td{background:var(--blu-bg)}
+.gdot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:7px;vertical-align:0}
+td.wrapc{white-space:normal;min-width:180px;color:var(--ink2)}
+details.q{padding:10px 16px} details.q summary{cursor:pointer;font-weight:600;font-size:13px}
+details.q pre{background:#0f1725;color:#d7e0ef;border-radius:9px;padding:10px 12px;font-size:11.5px;overflow-x:auto;white-space:pre-wrap;margin:8px 0}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <img class="logo" alt="Ekyam" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjM2IiB2aWV3Qm94PSIwIDAgMTI4IDM2IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBjbGlwLXBhdGg9InVybCgjY2xpcDBfMTU0MDhfMTE4NTkpIj4KPHBhdGggZD0iTTE1LjIxMTcgMzIuMjEyM0MxNS4zNDYzIDMyLjE1ODIgMTUuNDkzMSAzMi4yNTcxIDE1LjQ5MzEgMzIuNDAyVjM1LjYzN0MxNS40OTMxIDM1Ljc4MiAxNS4zNDYzIDM1Ljg4MTIgMTUuMjExNyAzNS44MjcxTDExLjE4MzIgMzQuMjA5NEMxMS4wMTE5IDM0LjE0MDUgMTEuMDExOSAzMy44OTgzIDExLjE4MzIgMzMuODI5NkwxNS4yMTE3IDMyLjIxMjNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxOTM2IDMwLjAxMjFDMTAuMDUzNyAyOS45NjAxIDEwLjE5ODIgMzAuMDU5IDEwLjE5ODMgMzAuMjAyOFYzMy4zMDg4QzEwLjE5ODIgMzMuNDUyNiAxMC4wNTM3IDMzLjU1MTUgOS45MTkzNiAzMy40OTk1TDUuOTA4MTggMzEuOTQ2NUM1LjczMzczIDMxLjg3OTEgNS43MzM3MyAzMS42MzI1IDUuOTA4MTggMzEuNTY1MUw5LjkxOTM2IDMwLjAxMjFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xMC43MTA5IDMwLjIwMjhDMTAuNzExIDMwLjA1OSAxMC44NTU2IDI5Ljk2MDEgMTAuOTg5OSAzMC4wMTIxTDE1LjAwMTEgMzEuNTY1MUMxNS4xNzU1IDMxLjYzMjUgMTUuMTc1NSAzMS44NzkxIDE1LjAwMTEgMzEuOTQ2NUwxMC45ODk5IDMzLjQ5OTVDMTAuODU1NSAzMy41NTE1IDEwLjcxMSAzMy40NTI2IDEwLjcxMDkgMzMuMzA4OFYzMC4yMDI4WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjAuNTA5MiAzMC4wMTE5QzIwLjY0MzUgMjkuOTYgMjAuNzg4MSAzMC4wNTg5IDIwLjc4ODEgMzAuMjAyN1YzMy4zMDg3QzIwLjc4ODEgMzMuNDUyNCAyMC42NDM1IDMzLjU1MTQgMjAuNTA5MiAzMy40OTk0TDE2LjQ5OCAzMS45NDY0QzE2LjMyMzYgMzEuODc4OSAxNi4zMjM2IDMxLjYzMjQgMTYuNDk4IDMxLjU2NUwyMC41MDkyIDMwLjAxMTlaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yMS4zMDA4IDMwLjIwMjdDMjEuMzAwOCAzMC4wNTg5IDIxLjQ0NTQgMjkuOTYgMjEuNTc5NyAzMC4wMTE5TDI1LjU5MDkgMzEuNTY1QzI1Ljc2NTQgMzEuNjMyNCAyNS43NjU0IDMxLjg3ODkgMjUuNTkwOSAzMS45NDY0TDIxLjU3OTcgMzMuNDk5NEMyMS40NDU0IDMzLjU1MTQgMjEuMzAwOCAzMy40NTI0IDIxLjMwMDggMzMuMzA4N1YzMC4yMDI3WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNNC42MTk4NiAyNy42ODQ4QzQuNzU0NTIgMjcuNjMwOSA0LjkwMTI3IDI3LjcyOTkgNC45MDEzNCAyNy44NzQ2VjMxLjEwOThDNC45MDEzNCAzMS4yNTQ4IDQuNzU0NTQgMzEuMzUzNyA0LjYxOTg2IDMxLjI5OThMMC41OTEzOTYgMjkuNjgyQzAuNDIwMDU1IDI5LjYxMzMgMC40MjAwNTUgMjkuMzcxMSAwLjU5MTM5NiAyOS4zMDI0TDQuNjE5ODYgMjcuNjg0OFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTUuNDE0MDYgMjcuODc0NkM1LjQxNDEzIDI3LjcyOTkgNS41NjA4NiAyNy42MzA5IDUuNjk1NTQgMjcuNjg0OEw5LjcyMzk5IDI5LjMwMjRDOS44OTUzMyAyOS4zNzExIDkuODk1MzMgMjkuNjEzMyA5LjcyMzk5IDI5LjY4Mkw1LjY5NTU0IDMxLjI5OThDNS41NjA4MyAzMS4zNTM3IDUuNDE0MDYgMzEuMjU0OCA1LjQxNDA2IDMxLjEwOThWMjcuODc0NloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE1LjIxMTcgMjcuNjg0OEMxNS4zNDYzIDI3LjYzMDkgMTUuNDkzMSAyNy43Mjk5IDE1LjQ5MzEgMjcuODc0NlYzMS4xMDk4QzE1LjQ5MzEgMzEuMjU0OCAxNS4zNDYzIDMxLjM1MzcgMTUuMjExNyAzMS4yOTk4TDExLjE4MzIgMjkuNjgyQzExLjAxMTkgMjkuNjEzMyAxMS4wMTE5IDI5LjM3MTEgMTEuMTgzMiAyOS4zMDI0TDE1LjIxMTcgMjcuNjg0OFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE2LjAwMzkgMjcuODc0NkMxNi4wMDQgMjcuNzI5OSAxNi4xNTA3IDI3LjYzMDkgMTYuMjg1NCAyNy42ODQ4TDIwLjMxMzggMjkuMzAyNEMyMC40ODUyIDI5LjM3MTEgMjAuNDg1MiAyOS42MTMzIDIwLjMxMzggMjkuNjgyTDE2LjI4NTQgMzEuMjk5OEMxNi4xNTA3IDMxLjM1MzcgMTYuMDAzOSAzMS4yNTQ4IDE2LjAwMzkgMzEuMTA5OFYyNy44NzQ2WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjUuODAxNSAyNy42ODQ4QzI1LjkzNjIgMjcuNjMwOSAyNi4wODI4IDI3LjcyOTkgMjYuMDgzMSAyNy44NzQ2VjMxLjEwOThDMjYuMDgzMSAzMS4yNTQ4IDI1LjkzNjIgMzEuMzUzNyAyNS44MDE1IDMxLjI5OThMMjEuNzczIDI5LjY4MkMyMS42MDE3IDI5LjYxMzMgMjEuNjAxNyAyOS4zNzExIDIxLjc3MyAyOS4zMDI0TDI1LjgwMTUgMjcuNjg0OFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTI2LjU5NzcgMjcuODc0NkMyNi41OTc3IDI3LjcyOTkgMjYuNzQ0NSAyNy42MzA5IDI2Ljg3OTIgMjcuNjg0OEwzMC45MDc2IDI5LjMwMjRDMzEuMDc4OCAyOS4zNzExIDMxLjA3ODggMjkuNjEzMyAzMC45MDc2IDI5LjY4MkwyNi44NzkyIDMxLjI5OThDMjYuNzQ0NSAzMS4zNTM3IDI2LjU5NzcgMzEuMjU0OCAyNi41OTc3IDMxLjEwOThWMjcuODc0NloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTAuMTE5MTQxIDI1LjU0MzJDMC4xMTkyMTIgMjUuMzk4MiAwLjI2NTk1MSAyNS4yOTkzIDAuNDAwNjI0IDI1LjM1MzRMNC40MjkwOSAyNi45NzA4QzQuNjAwNDEgMjcuMDM5NyA0LjYwMDQxIDI3LjI4MTkgNC40MjkwOSAyNy4zNTA2TDAuNDAwNjI0IDI4Ljk2ODJDMC4yNjU5MTggMjkuMDIyMyAwLjExOTE0MSAyOC45MjMxIDAuMTE5MTQxIDI4Ljc3ODJWMjUuNTQzMloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTkuOTE2NzIgMjUuMzUzM0MxMC4wNTE0IDI1LjI5OTEgMTAuMTk4MSAyNS4zOTgxIDEwLjE5ODIgMjUuNTQzVjI4Ljc3OEMxMC4xOTgyIDI4LjkyMyAxMC4wNTE0IDI5LjAyMjIgOS45MTY3MiAyOC45NjhMNS44ODgyNiAyNy4zNTA0QzUuNzE2OTQgMjcuMjgxOCA1LjcxNjk0IDI3LjAzOTUgNS44ODgyNiAyNi45NzA2TDkuOTE2NzIgMjUuMzUzM1oiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTEwLjcxMDkgMjUuNTQzMkMxMC43MTEgMjUuMzk4MiAxMC44NTc4IDI1LjI5OTMgMTAuOTkyNCAyNS4zNTM0TDE1LjAyMDkgMjYuOTcwOEMxNS4xOTIyIDI3LjAzOTcgMTUuMTkyMiAyNy4yODE5IDE1LjAyMDkgMjcuMzUwNkwxMC45OTI0IDI4Ljk2ODJDMTAuODU3NyAyOS4wMjIzIDEwLjcxMDkgMjguOTIzMSAxMC43MTA5IDI4Ljc3ODJWMjUuNTQzMloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTIwLjUwNjYgMjUuMzUzM0MyMC42NDEyIDI1LjI5OTEgMjAuNzg4IDI1LjM5ODEgMjAuNzg4MSAyNS41NDNWMjguNzc4QzIwLjc4ODEgMjguOTIzIDIwLjY0MTMgMjkuMDIyMiAyMC41MDY2IDI4Ljk2OEwxNi40NzgxIDI3LjM1MDRDMTYuMzA2OCAyNy4yODE4IDE2LjMwNjggMjcuMDM5NSAxNi40NzgxIDI2Ljk3MDZMMjAuNTA2NiAyNS4zNTMzWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjEuMzAwOCAyNS41NDNDMjEuMzAwOSAyNS4zOTgxIDIxLjQ0NzYgMjUuMjk5MSAyMS41ODIzIDI1LjM1MzNMMjUuNjEwNyAyNi45NzA2QzI1Ljc4MjEgMjcuMDM5NSAyNS43ODIxIDI3LjI4MTggMjUuNjEwNyAyNy4zNTA0TDIxLjU4MjMgMjguOTY4QzIxLjQ0NzYgMjkuMDIyMiAyMS4zMDA4IDI4LjkyMyAyMS4zMDA4IDI4Ljc3OFYyNS41NDNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0zMS4wOTg0IDI1LjM1MzRDMzEuMjMzMSAyNS4yOTkzIDMxLjM3OTcgMjUuMzk4MiAzMS4zNzk3IDI1LjU0MzJWMjguNzc4MkMzMS4zNzk3IDI4LjkyMzEgMzEuMjMzMSAyOS4wMjIzIDMxLjA5ODQgMjguOTY4MkwyNy4wNyAyNy4zNTA2QzI2Ljg5ODUgMjcuMjgxOSAyNi44OTg1IDI3LjAzOTcgMjcuMDcgMjYuOTcwOEwzMS4wOTg0IDI1LjM1MzRaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik00LjYyMjQ5IDIzLjE1NDJDNC43NTY3OSAyMy4xMDIyIDQuOTAxMzQgMjMuMjAxMSA0LjkwMTQxIDIzLjM0NDhWMjYuNDUxQzQuOTAxMzYgMjYuNTk0OCA0Ljc1Njc5IDI2LjY5MzUgNC42MjI0OSAyNi42NDE1TDAuNjExMjkgMjUuMDg4N0MwLjQzNjg2NCAyNS4wMjEgMC40MzY4NTkgMjQuNzc0OCAwLjYxMTI5IDI0LjcwN0w0LjYyMjQ5IDIzLjE1NDJaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik01LjQxNDA2IDIzLjM0NUM1LjQxNDExIDIzLjIwMTIgNS41NTg2NiAyMy4xMDIzIDUuNjkyOTYgMjMuMTU0M0w5LjcwNDE2IDI0LjcwNzJDOS44Nzg1OSAyNC43NzQ5IDkuODc4NTkgMjUuMDIxMiA5LjcwNDE2IDI1LjA4ODlMNS42OTI5NiAyNi42NDE2QzUuNTU4NjYgMjYuNjkzNiA1LjQxNDExIDI2LjU5NDkgNS40MTQwNiAyNi40NTExVjIzLjM0NVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE2LjAwMzkgMjMuMzQ0OEMxNi4wMDQgMjMuMjAxMSAxNi4xNDg1IDIzLjEwMjIgMTYuMjgyOCAyMy4xNTQyTDIwLjI5NCAyNC43MDdDMjAuNDY4NCAyNC43NzQ4IDIwLjQ2ODQgMjUuMDIxIDIwLjI5NCAyNS4wODg3TDE2LjI4MjggMjYuNjQxNUMxNi4xNDg1IDI2LjY5MzUgMTYuMDAzOSAyNi41OTQ4IDE2LjAwMzkgMjYuNDUxVjIzLjM0NDhaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNS44MDQyIDIzLjE1NDNDMjUuOTM4NCAyMy4xMDIzIDI2LjA4MjkgMjMuMjAxMiAyNi4wODMxIDIzLjM0NVYyNi40NTExQzI2LjA4MjkgMjYuNTk0OSAyNS45Mzg0IDI2LjY5MzYgMjUuODA0MiAyNi42NDE2TDIxLjc5MjkgMjUuMDg4OUMyMS42MTg1IDI1LjAyMTIgMjEuNjE4NSAyNC43NzQ5IDIxLjc5MjkgMjQuNzA3MkwyNS44MDQyIDIzLjE1NDNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDIzLjM0NTFDMjYuNTk3NyAyMy4yMDEzIDI2Ljc0MjQgMjMuMTAyNSAyNi44NzY2IDIzLjE1NDRMMzAuODg3OCAyNC43MDczQzMxLjA2MjEgMjQuNzc1IDMxLjA2MjEgMjUuMDIxMyAzMC44ODc4IDI1LjA4OUwyNi44NzY2IDI2LjY0MThDMjYuNzQyNCAyNi42OTM3IDI2LjU5NzcgMjYuNTk1IDI2LjU5NzcgMjYuNDUxM1YyMy4zNDUxWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMC4xMTkxNDEgMjEuMDE2N0MwLjExOTIxMiAyMC44NzE4IDAuMjY1OTUxIDIwLjc3MjkgMC40MDA2MjQgMjAuODI3TDQuNDI5MDkgMjIuNDQ0NEM0LjYwMDQxIDIyLjUxMzIgNC42MDA0MSAyMi43NTU0IDQuNDI5MDkgMjIuODI0MUwwLjQwMDYyNCAyNC40NDE4QzAuMjY1OTE4IDI0LjQ5NTkgMC4xMTkxNDEgMjQuMzk2OCAwLjExOTE0MSAyNC4yNTE4VjIxLjAxNjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDIwLjgyNzFDMTAuMDUxNCAyMC43NzMgMTAuMTk4MSAyMC44NzIgMTAuMTk4MiAyMS4wMTY5VjI0LjI1MTlDMTAuMTk4MiAyNC4zOTY5IDEwLjA1MTQgMjQuNDk2MSA5LjkxNjcyIDI0LjQ0MTlMNS44ODgyNiAyMi44MjQzQzUuNzE2OTQgMjIuNzU1NSA1LjcxNjk0IDIyLjUxMzMgNS44ODgyNiAyMi40NDQ1TDkuOTE2NzIgMjAuODI3MVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTIwLjUwNjYgMjAuODI3MUMyMC42NDEyIDIwLjc3MyAyMC43ODggMjAuODcyIDIwLjc4ODEgMjEuMDE2OVYyNC4yNTE5QzIwLjc4ODEgMjQuMzk2OSAyMC42NDEzIDI0LjQ5NjEgMjAuNTA2NiAyNC40NDE5TDE2LjQ3ODEgMjIuODI0M0MxNi4zMDY4IDIyLjc1NTUgMTYuMzA2OCAyMi41MTMzIDE2LjQ3ODEgMjIuNDQ0NUwyMC41MDY2IDIwLjgyNzFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yMS4zMDA4IDIxLjAxNjlDMjEuMzAwOSAyMC44NzIgMjEuNDQ3NiAyMC43NzMgMjEuNTgyMyAyMC44MjcxTDI1LjYxMDcgMjIuNDQ0NUMyNS43ODIxIDIyLjUxMzMgMjUuNzgyMSAyMi43NTU1IDI1LjYxMDcgMjIuODI0M0wyMS41ODIzIDI0LjQ0MTlDMjEuNDQ3NiAyNC40OTYxIDIxLjMwMDggMjQuMzk2OSAyMS4zMDA4IDI0LjI1MTlWMjEuMDE2OVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTMxLjA5ODQgMjAuODI3QzMxLjIzMzEgMjAuNzcyOSAzMS4zNzk3IDIwLjg3MTggMzEuMzc5NyAyMS4wMTY3VjI0LjI1MThDMzEuMzc5NyAyNC4zOTY4IDMxLjIzMzEgMjQuNDk1OSAzMS4wOTg0IDI0LjQ0MThMMjcuMDcgMjIuODI0MUMyNi44OTg1IDIyLjc1NTQgMjYuODk4NSAyMi41MTMyIDI3LjA3IDIyLjQ0NDRMMzEuMDk4NCAyMC44MjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik00LjYxOTg2IDE4LjQ5NTVDNC43NTQ1MiAxOC40NDE0IDQuOTAxMjcgMTguNTQwMyA0LjkwMTM0IDE4LjY4NTJWMjEuOTIwM0M0LjkwMTM0IDIyLjA2NTIgNC43NTQ1NCAyMi4xNjQ0IDQuNjE5ODYgMjIuMTEwM0wwLjU5MTM5NiAyMC40OTI2QzAuNDIwMDU1IDIwLjQyMzggMC40MjAwNTUgMjAuMTgxNyAwLjU5MTM5NiAyMC4xMTI5TDQuNjE5ODYgMTguNDk1NVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTI1LjgwMTUgMTguNDk1NkMyNS45MzYyIDE4LjQ0MTUgMjYuMDgyOCAxOC41NDA0IDI2LjA4MzEgMTguNjg1M1YyMS45MjA0QzI2LjA4MzEgMjIuMDY1MyAyNS45MzYyIDIyLjE2NDUgMjUuODAxNSAyMi4xMTA0TDIxLjc3MyAyMC40OTI3QzIxLjYwMTcgMjAuNDIzOSAyMS42MDE3IDIwLjE4MTggMjEuNzczIDIwLjExM0wyNS44MDE1IDE4LjQ5NTZaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDE4LjY4NTRDMjYuNTk3NyAxOC41NDA1IDI2Ljc0NDUgMTguNDQxNiAyNi44NzkyIDE4LjQ5NTdMMzAuOTA3NiAyMC4xMTMxQzMxLjA3ODggMjAuMTgxOSAzMS4wNzg4IDIwLjQyNDEgMzAuOTA3NiAyMC40OTI4TDI2Ljg3OTIgMjIuMTEwNUMyNi43NDQ1IDIyLjE2NDYgMjYuNTk3NyAyMi4wNjU1IDI2LjU5NzcgMjEuOTIwNVYxOC42ODU0WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMC4xMTkxNDEgMTYuNDg1NUMwLjExOTE5OCAxNi4zNDE3IDAuMjYzNzUyIDE2LjI0MjggMC4zOTgwNTkgMTYuMjk0OEw0LjQwOTI0IDE3Ljg0NzdDNC41ODM2OSAxNy45MTUzIDQuNTgzNjkgMTguMTYxNyA0LjQwOTI0IDE4LjIyOTNMMC4zOTgwNTkgMTkuNzgyMkMwLjI2Mzc0NSAxOS44MzQyIDAuMTE5MTg3IDE5LjczNTQgMC4xMTkxNDEgMTkuNTkxNVYxNi40ODU1WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMzEuMDk4OSAxNi4yOTQ4QzMxLjIzMzQgMTYuMjQyOCAzMS4zNzc5IDE2LjM0MTcgMzEuMzc3OSAxNi40ODU1VjE5LjU5MTVDMzEuMzc3OSAxOS43MzU0IDMxLjIzMzQgMTkuODM0MiAzMS4wOTg5IDE5Ljc4MjJMMjcuMDg4IDE4LjIyOTNDMjYuOTEzNCAxOC4xNjE3IDI2LjkxMzQgMTcuOTE1MyAyNy4wODggMTcuODQ3N0wzMS4wOTg5IDE2LjI5NDhaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik00LjYxOTg2IDEzLjk2ODFDNC43NTQ1MiAxMy45MTQgNC45MDEyNyAxNC4wMTMgNC45MDEzNCAxNC4xNTc5VjE3LjM5MjlDNC45MDEzNCAxNy41Mzc5IDQuNzU0NTQgMTcuNjM3IDQuNjE5ODYgMTcuNTgyOUwwLjU5MTM5NiAxNS45NjUzQzAuNDIwMDU1IDE1Ljg5NjUgMC40MjAwNTUgMTUuNjU0MyAwLjU5MTM5NiAxNS41ODU1TDQuNjE5ODYgMTMuOTY4MVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTUuNDE0MDYgMTQuMTU3OUM1LjQxNDEzIDE0LjAxMyA1LjU2MDg2IDEzLjkxNCA1LjY5NTU0IDEzLjk2ODFMOS43MjM5OSAxNS41ODU1QzkuODk1MzMgMTUuNjU0MyA5Ljg5NTMzIDE1Ljg5NjUgOS43MjM5OSAxNS45NjUzTDUuNjk1NTQgMTcuNTgyOUM1LjU2MDgzIDE3LjYzNyA1LjQxNDA2IDE3LjUzNzkgNS40MTQwNiAxNy4zOTI5VjE0LjE1NzlaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDE0LjE1NzlDMjYuNTk3NyAxNC4wMTMgMjYuNzQ0NSAxMy45MTQgMjYuODc5MiAxMy45NjgxTDMwLjkwNzYgMTUuNTg1NUMzMS4wNzg4IDE1LjY1NDMgMzEuMDc4OCAxNS44OTY1IDMwLjkwNzYgMTUuOTY1M0wyNi44NzkyIDE3LjU4MjlDMjYuNzQ0NSAxNy42MzcgMjYuNTk3NyAxNy41Mzc5IDI2LjU5NzcgMTcuMzkyOVYxNC4xNTc5WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMC4xMTkxNDEgMTEuODI2M0MwLjExOTIxMiAxMS42ODE0IDAuMjY1OTUxIDExLjU4MjUgMC40MDA2MjQgMTEuNjM2Nkw0LjQyOTA5IDEzLjI1NEM0LjYwMDQxIDEzLjMyMjggNC42MDA0MSAxMy41NjQ5IDQuNDI5MDkgMTMuNjMzN0wwLjQwMDYyNCAxNS4yNTE0QzAuMjY1OTE4IDE1LjMwNTUgMC4xMTkxNDEgMTUuMjA2NCAwLjExOTE0MSAxNS4wNjE0VjExLjgyNjNaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDExLjYzNjdDMTAuMDUxNCAxMS41ODI2IDEwLjE5ODEgMTEuNjgxNiAxMC4xOTgyIDExLjgyNjRWMTUuMDYxNUMxMC4xOTgyIDE1LjIwNjUgMTAuMDUxNCAxNS4zMDU2IDkuOTE2NzIgMTUuMjUxNUw1Ljg4ODI2IDEzLjYzMzlDNS43MTY5NCAxMy41NjUgNS43MTY5NCAxMy4zMjI5IDUuODg4MjYgMTMuMjU0MUw5LjkxNjcyIDExLjYzNjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xMC43MTA5IDExLjgyNjNDMTAuNzExIDExLjY4MTQgMTAuODU3OCAxMS41ODI1IDEwLjk5MjQgMTEuNjM2NkwxNS4wMjA5IDEzLjI1NEMxNS4xOTIyIDEzLjMyMjggMTUuMTkyMiAxMy41NjQ5IDE1LjAyMDkgMTMuNjMzN0wxMC45OTI0IDE1LjI1MTRDMTAuODU3NyAxNS4zMDU1IDEwLjcxMDkgMTUuMjA2NCAxMC43MTA5IDE1LjA2MTRWMTEuODI2M1oiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTIxLjMwMDggMTEuODI2NEMyMS4zMDA5IDExLjY4MTYgMjEuNDQ3NiAxMS41ODI2IDIxLjU4MjMgMTEuNjM2N0wyNS42MTA3IDEzLjI1NDFDMjUuNzgyMSAxMy4zMjI5IDI1Ljc4MjEgMTMuNTY1IDI1LjYxMDcgMTMuNjMzOUwyMS41ODIzIDE1LjI1MTVDMjEuNDQ3NiAxNS4zMDU2IDIxLjMwMDggMTUuMjA2NSAyMS4zMDA4IDE1LjA2MTVWMTEuODI2NFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTMxLjA5ODQgMTEuNjM2NkMzMS4yMzMxIDExLjU4MjUgMzEuMzc5NyAxMS42ODE0IDMxLjM3OTcgMTEuODI2M1YxNS4wNjE0QzMxLjM3OTcgMTUuMjA2NCAzMS4yMzMxIDE1LjMwNTUgMzEuMDk4NCAxNS4yNTE0TDI3LjA3IDEzLjYzMzdDMjYuODk4NSAxMy41NjQ5IDI2Ljg5ODUgMTMuMzIyOCAyNy4wNyAxMy4yNTRMMzEuMDk4NCAxMS42MzY2WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNNC42MTk4NiA5LjMwMjU4QzQuNzU0NTIgOS4yNDg1MSA0LjkwMTI3IDkuMzQ3NDMgNC45MDEzNCA5LjQ5MjMzVjEyLjcyNzRDNC45MDEzNCAxMi44NzI0IDQuNzU0NTQgMTIuOTcxNSA0LjYxOTg2IDEyLjkxNzRMMC41OTEzOTYgMTEuMjk5N0MwLjQyMDA1NSAxMS4yMzA5IDAuNDIwMDU1IDEwLjk4ODggMC41OTEzOTYgMTAuOTJMNC42MTk4NiA5LjMwMjU4WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNNS40MTQwNiA5LjQ5MjQ2QzUuNDE0MTMgOS4zNDc1NSA1LjU2MDg2IDkuMjQ4NjMgNS42OTU1NCA5LjMwMjcxTDkuNzIzOTkgMTAuOTIwMUM5Ljg5NTMzIDEwLjk4ODkgOS44OTUzMyAxMS4yMzExIDkuNzIzOTkgMTEuMjk5OEw1LjY5NTU0IDEyLjkxNzVDNS41NjA4MyAxMi45NzE2IDUuNDE0MDYgMTIuODcyNSA1LjQxNDA2IDEyLjcyNzVWOS40OTI0NloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTE1LjIxMTcgOS4zMDI1OEMxNS4zNDYzIDkuMjQ4NTEgMTUuNDkzMSA5LjM0NzQzIDE1LjQ5MzEgOS40OTIzM1YxMi43Mjc0QzE1LjQ5MzEgMTIuODcyNCAxNS4zNDYzIDEyLjk3MTUgMTUuMjExNyAxMi45MTc0TDExLjE4MzIgMTEuMjk5N0MxMS4wMTE5IDExLjIzMDkgMTEuMDExOSAxMC45ODg4IDExLjE4MzIgMTAuOTJMMTUuMjExNyA5LjMwMjU4WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjUuODAxNSA5LjMwMjcxQzI1LjkzNjIgOS4yNDg2MyAyNi4wODI4IDkuMzQ3NTUgMjYuMDgzMSA5LjQ5MjQ2VjEyLjcyNzVDMjYuMDgzMSAxMi44NzI1IDI1LjkzNjIgMTIuOTcxNiAyNS44MDE1IDEyLjkxNzVMMjEuNzczIDExLjI5OThDMjEuNjAxNyAxMS4yMzExIDIxLjYwMTcgMTAuOTg4OSAyMS43NzMgMTAuOTIwMUwyNS44MDE1IDkuMzAyNzFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yNi41OTc3IDkuNDkyNThDMjYuNTk3NyA5LjM0NzY3IDI2Ljc0NDUgOS4yNDg3NiAyNi44NzkyIDkuMzAyODNMMzAuOTA3NiAxMC45MjAzQzMxLjA3ODggMTAuOTg5IDMxLjA3ODggMTEuMjMxMiAzMC45MDc2IDExLjNMMjYuODc5MiAxMi45MTc2QzI2Ljc0NDUgMTIuOTcxNyAyNi41OTc3IDEyLjg3MjYgMjYuNTk3NyAxMi43Mjc2VjkuNDkyNThaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0wLjExOTE0MSA3LjE2MTc3QzAuMTE5MjEyIDcuMDE2ODYgMC4yNjU5NTEgNi45MTc5NSAwLjQwMDYyNCA2Ljk3MjAyTDQuNDI5MDkgOC41ODk0NEM0LjYwMDQxIDguNjU4MjIgNC42MDA0MSA4LjkwMDM4IDQuNDI5MDkgOC45NjkxNkwwLjQwMDYyNCAxMC41ODY4QzAuMjY1OTE4IDEwLjY0MDkgMC4xMTkxNDEgMTAuNTQxOCAwLjExOTE0MSAxMC4zOTY4VjcuMTYxNzdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDYuOTcyMDJDMTAuMDUxNCA2LjkxNzk1IDEwLjE5ODEgNy4wMTY4NiAxMC4xOTgyIDcuMTYxNzdWMTAuMzk2OEMxMC4xOTgyIDEwLjU0MTggMTAuMDUxNCAxMC42NDA5IDkuOTE2NzIgMTAuNTg2OEw1Ljg4ODI2IDguOTY5MTZDNS43MTY5NCA4LjkwMDM4IDUuNzE2OTQgOC42NTgyMiA1Ljg4ODI2IDguNTg5NDRMOS45MTY3MiA2Ljk3MjAyWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMTAuNzEwOSA3LjE2MTc3QzEwLjcxMSA3LjAxNjg2IDEwLjg1NzggNi45MTc5NSAxMC45OTI0IDYuOTcyMDJMMTUuMDIwOSA4LjU4OTQ0QzE1LjE5MjIgOC42NTgyMiAxNS4xOTIyIDguOTAwMzggMTUuMDIwOSA4Ljk2OTE2TDEwLjk5MjQgMTAuNTg2OEMxMC44NTc3IDEwLjY0MDkgMTAuNzEwOSAxMC41NDE4IDEwLjcxMDkgMTAuMzk2OFY3LjE2MTc3WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjAuNTA2NiA2Ljk3MjAyQzIwLjY0MTIgNi45MTc5NSAyMC43ODggNy4wMTY4NiAyMC43ODgxIDcuMTYxNzdWMTAuMzk2OEMyMC43ODgxIDEwLjU0MTggMjAuNjQxMyAxMC42NDA5IDIwLjUwNjYgMTAuNTg2OEwxNi40NzgxIDguOTY5MTZDMTYuMzA2OCA4LjkwMDM4IDE2LjMwNjggOC42NTgyMiAxNi40NzgxIDguNTg5NDRMMjAuNTA2NiA2Ljk3MjAyWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjEuMzAwOCA3LjE2MTc3QzIxLjMwMDkgNy4wMTY4NiAyMS40NDc2IDYuOTE3OTUgMjEuNTgyMyA2Ljk3MjAyTDI1LjYxMDcgOC41ODk0NEMyNS43ODIxIDguNjU4MjIgMjUuNzgyMSA4LjkwMDM4IDI1LjYxMDcgOC45NjkxNkwyMS41ODIzIDEwLjU4NjhDMjEuNDQ3NiAxMC42NDA5IDIxLjMwMDggMTAuNTQxOCAyMS4zMDA4IDEwLjM5NjhWNy4xNjE3N1oiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTMxLjA5ODQgNi45NzIwMkMzMS4yMzMxIDYuOTE3OTUgMzEuMzc5NyA3LjAxNjg2IDMxLjM3OTcgNy4xNjE3N1YxMC4zOTY4QzMxLjM3OTcgMTAuNTQxOCAzMS4yMzMxIDEwLjY0MDkgMzEuMDk4NCAxMC41ODY4TDI3LjA3IDguOTY5MTZDMjYuODk4NSA4LjkwMDM4IDI2Ljg5ODUgOC42NTgyMiAyNy4wNyA4LjU4OTQ0TDMxLjA5ODQgNi45NzIwMloiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTQuNjIyNDkgNC43NzEzNEM0Ljc1Njc5IDQuNzE5MzkgNC45MDEzNCA0LjgxODI0IDQuOTAxNDEgNC45NjIwMlY4LjA2ODEzQzQuOTAxMzYgOC4yMTE5MiA0Ljc1Njc5IDguMzEwNzYgNC42MjI0OSA4LjI1ODgxTDAuNjExMjkgNi43MDU4OEMwLjQzNjg2NCA2LjYzODI5IDAuNDM2ODU5IDYuMzkxODcgMC42MTEyOSA2LjMyNDI4TDQuNjIyNDkgNC43NzEzNFoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTUuNDE0MDYgNC45NjIyN0M1LjQxNDExIDQuODE4NDggNS41NTg2NiA0LjcxOTY0IDUuNjkyOTYgNC43NzE1OUw5LjcwNDE2IDYuMzI0NTJDOS44Nzg1OSA2LjM5MjExIDkuODc4NTkgNi42Mzg1MyA5LjcwNDE2IDYuNzA2MTJMNS42OTI5NiA4LjI1OTA2QzUuNTU4NjYgOC4zMTEwMSA1LjQxNDExIDguMjEyMTYgNS40MTQwNiA4LjA2ODM4VjQuOTYyMjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xNS4yMTQzIDQuNzcxMzRDMTUuMzQ4NiA0LjcxOTM5IDE1LjQ5MzEgNC44MTgyNCAxNS40OTMyIDQuOTYyMDJWOC4wNjgxM0MxNS40OTMyIDguMjExOTIgMTUuMzQ4NiA4LjMxMDc2IDE1LjIxNDMgOC4yNTg4MUwxMS4yMDMxIDYuNzA1ODhDMTEuMDI4NyA2LjYzODI5IDExLjAyODcgNi4zOTE4NyAxMS4yMDMxIDYuMzI0MjhMMTUuMjE0MyA0Ljc3MTM0WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMTYuMDAzOSA0Ljk2MjAyQzE2LjAwNCA0LjgxODI0IDE2LjE0ODUgNC43MTkzOSAxNi4yODI4IDQuNzcxMzRMMjAuMjk0IDYuMzI0MjhDMjAuNDY4NCA2LjM5MTg3IDIwLjQ2ODQgNi42MzgyOSAyMC4yOTQgNi43MDU4OEwxNi4yODI4IDguMjU4ODFDMTYuMTQ4NSA4LjMxMDc2IDE2LjAwNCA4LjIxMTkyIDE2LjAwMzkgOC4wNjgxM1Y0Ljk2MjAyWiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjUuODA0MiA0Ljc3MTU5QzI1LjkzODQgNC43MTk2NCAyNi4wODI5IDQuODE4NDggMjYuMDgzMSA0Ljk2MjI3VjguMDY4MzhDMjYuMDgyOSA4LjIxMjE2IDI1LjkzODQgOC4zMTEwMSAyNS44MDQyIDguMjU5MDZMMjEuNzkyOSA2LjcwNjEyQzIxLjYxODUgNi42Mzg1MyAyMS42MTg1IDYuMzkyMTEgMjEuNzkyOSA2LjMyNDUyTDI1LjgwNDIgNC43NzE1OVoiIGZpbGw9IiMxRTFGMjEiLz4KPHBhdGggZD0iTTI2LjU5NzcgNC45NjIyN0MyNi41OTc3IDQuODE4NDggMjYuNzQyNCA0LjcxOTY0IDI2Ljg3NjYgNC43NzE1OUwzMC44ODc4IDYuMzI0NTJDMzEuMDYyMSA2LjM5MjExIDMxLjA2MjEgNi42Mzg1MyAzMC44ODc4IDYuNzA2MTJMMjYuODc2NiA4LjI1OTA2QzI2Ljc0MjQgOC4zMTEwMSAyNi41OTc3IDguMjEyMTYgMjYuNTk3NyA4LjA2ODM4VjQuOTYyMjdaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik05LjkxNjcyIDIuNDQ2MjZDMTAuMDUxNCAyLjM5MjE5IDEwLjE5ODEgMi40OTExMyAxMC4xOTgyIDIuNjM2MDFWNS44NzExQzEwLjE5ODIgNi4wMTYwMyAxMC4wNTE0IDYuMTE1MTYgOS45MTY3MiA2LjA2MTA2TDUuODg4MjYgNC40NDM0MkM1LjcxNjk0IDQuMzc0NjIgNS43MTY5NCA0LjEzMjQ5IDUuODg4MjYgNC4wNjM2OEw5LjkxNjcyIDIuNDQ2MjZaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xMC43MTA5IDIuNjM1ODlDMTAuNzExIDIuNDkxMDEgMTAuODU3OCAyLjM5MjA3IDEwLjk5MjQgMi40NDYxNEwxNS4wMjA5IDQuMDYzNTZDMTUuMTkyMiA0LjEzMjM3IDE1LjE5MjIgNC4zNzQ1IDE1LjAyMDkgNC40NDMzTDEwLjk5MjQgNi4wNjA5NEMxMC44NTc3IDYuMTE1MDQgMTAuNzEwOSA2LjAxNTkxIDEwLjcxMDkgNS44NzA5OFYyLjYzNTg5WiIgZmlsbD0iIzFFMUYyMSIvPgo8cGF0aCBkPSJNMjAuNTA2NiAyLjQ0NjI2QzIwLjY0MTIgMi4zOTIxOSAyMC43ODggMi40OTExMyAyMC43ODgxIDIuNjM2MDFWNS44NzExQzIwLjc4ODEgNi4wMTYwMyAyMC42NDEzIDYuMTE1MTYgMjAuNTA2NiA2LjA2MTA2TDE2LjQ3ODEgNC40NDM0MkMxNi4zMDY4IDQuMzc0NjIgMTYuMzA2OCA0LjEzMjQ5IDE2LjQ3ODEgNC4wNjM2OEwyMC41MDY2IDIuNDQ2MjZaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0yMS4zMDA4IDIuNjM2MDFDMjEuMzAwOSAyLjQ5MTEzIDIxLjQ0NzYgMi4zOTIxOSAyMS41ODIzIDIuNDQ2MjZMMjUuNjEwNyA0LjA2MzY4QzI1Ljc4MjEgNC4xMzI0OSAyNS43ODIxIDQuMzc0NjIgMjUuNjEwNyA0LjQ0MzQyTDIxLjU4MjMgNi4wNjEwNkMyMS40NDc2IDYuMTE1MTYgMjEuMzAwOCA2LjAxNjAzIDIxLjMwMDggNS44NzExVjIuNjM2MDFaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik0xNi4wMDM5IDAuMzAxOTA1QzE2LjAwNCAwLjE1NzAxMSAxNi4xNTA3IDAuMDU4MDgwOSAxNi4yODU0IDAuMTEyMTU0TDIwLjMxMzggMS43Mjk1N0MyMC40ODUyIDEuNzk4MzcgMjAuNDg1MiAyLjA0MDUxIDIwLjMxMzggMi4xMDkzMUwxNi4yODU0IDMuNzI2OTdDMTYuMTUwNyAzLjc4MTA0IDE2LjAwMzkgMy42ODE5MyAxNi4wMDM5IDMuNTM2OThWMC4zMDE5MDVaIiBmaWxsPSIjMUUxRjIxIi8+CjxwYXRoIGQ9Ik01MS4zMSA5LjU0NzRDNTEuMzEgOS42NzkwNyA1MS4yMDMyIDkuNzg1ODEgNTEuMDcxMiA5Ljc4NTgxSDQxLjA1NjFDNDAuOTI0MyA5Ljc4NTgxIDQwLjgxNzMgOS44OTI1NSA0MC44MTczIDEwLjAyNDJWMTYuMjI5QzQwLjgxNzMgMTYuMzYwNiA0MC45MjQzIDE2LjQ2NzQgNDEuMDU2MSAxNi40Njc0SDUwLjMzMjNDNTAuNDY0MSAxNi40Njc0IDUwLjU3MTEgMTYuNTc0MSA1MC41NzExIDE2LjcwNThWMTkuMDg1OUM1MC41NzExIDE5LjIxNzYgNTAuNDY0MSAxOS4zMjQzIDUwLjMzMjMgMTkuMzI0M0g0MS4wNTYxQzQwLjkyNDMgMTkuMzI0MyA0MC44MTczIDE5LjQzMTEgNDAuODE3MyAxOS41NjI3VjI1Ljk3NThDNDAuODE3MyAyNi4xMDc0IDQwLjkyNDMgMjYuMjE0MiA0MS4wNTYxIDI2LjIxNDJINTEuMTc0NkM1MS4zMDY0IDI2LjIxNDIgNTEuNDEzNCAyNi4zMjEgNTEuNDEzNCAyNi40NTI2VjI4Ljg0NzdDNTEuNDEzNCAyOC45NzkzIDUxLjMwNjQgMjkuMDg2MSA1MS4xNzQ2IDI5LjA4NjFIMzcuNzMxQzM3LjU5OTIgMjkuMDg2MSAzNy40OTIyIDI4Ljk3OTMgMzcuNDkyMiAyOC44NDc3VjcuMTUyMzVDMzcuNDkyMiA3LjAyMDY4IDM3LjU5OTIgNi45MTM5NCAzNy43MzEgNi45MTM5NEg1MS4wNzEyQzUxLjIwMzIgNi45MTM5NCA1MS4zMSA3LjAyMDY4IDUxLjMxIDcuMTUyMzVWOS41NDc0Wk01Ni41NzIzIDE3LjMyNjRDNTYuNTcyMyAxNy40MjczIDU2LjY1NCAxNy41MDkgNTYuNzU1IDE3LjUwOUM1Ni44MDggMTcuNTA5IDU2Ljg1ODIgMTcuNDg2MiA1Ni44OTMgMTcuNDQ2NEw2Ni4wMTggNi45OTU2OUM2Ni4wNjM0IDYuOTQzNzQgNjYuMTI5MSA2LjkxMzk0IDY2LjE5ODEgNi45MTM5NEg3Mi44MjM4QzcyLjkwOTcgNi45MTM5NCA3Mi45ODg4IDYuOTU5ODYgNzMuMDMxMyA3LjAzNDI0TDc4LjY2NzYgMTYuOTAwN0M3OC43MDM5IDE2Ljk2NCA3OC43NzEyIDE3LjAwMzEgNzguODQ0MyAxNy4wMDMxQzc4LjkxNzQgMTcuMDAzMSA3OC45ODUgMTYuOTYzOCA3OS4wMjEgMTYuOTAwM0w4NC42MjgyIDcuMDM0N0M4NC42NzA1IDYuOTYwMDUgODQuNzQ5NyA2LjkxMzk0IDg0LjgzNTcgNi45MTM5NEg4OC4wNzU2Qzg4LjI2MDcgNi45MTM5NCA4OC4zNzUzIDcuMTE0OTkgODguMjgxIDcuMjczOTJMODAuNTMzMSAyMC4zMjQ3QzgwLjUxMTIgMjAuMzYxNSA4MC40OTk3IDIwLjQwMzQgODAuNDk5NyAyMC40NDYyVjI4Ljg0NzdDODAuNDk5NyAyOC45NzkzIDgwLjM5MjcgMjkuMDg2MSA4MC4yNjA5IDI5LjA4NjFINzcuNDEzNEM3Ny4yODE2IDI5LjA4NjEgNzcuMTc0NiAyOC45NzkzIDc3LjE3NDYgMjguODQ3N1YyMC40NDYxQzc3LjE3NDYgMjAuNDAzNCA3Ny4xNjMxIDIwLjM2MTUgNzcuMTQxNCAyMC4zMjQ3TDY5Ljc3OTkgNy45MDIzN0M2OS42OTc2IDcuNzYzMjggNjkuNTAzNCA3Ljc0NDYxIDY5LjM5NTkgNy44NjU0Nkw2MS41MDI5IDE2Ljc0MDNDNjEuNDI4MiAxNi44MjQxIDYxLjQyMjIgMTYuOTQ4NSA2MS40ODg0IDE3LjAzOUw3MC4wMDk5IDI4LjcwNzNDNzAuMTI0OCAyOC44NjQ5IDcwLjAxMjEgMjkuMDg2MSA2OS44MTcgMjkuMDg2MUg2Ni40MDQyQzY2LjMyNzMgMjkuMDg2MSA2Ni4yNTQ5IDI5LjA0OTIgNjYuMjEgMjguOTg2OUw1OS4zMzYyIDE5LjQzNzNDNTkuMjQ1NyAxOS4zMTE3IDU5LjA2MTQgMTkuMzAzOSA1OC45NjA2IDE5LjQyMTVMNTYuNjI5NCAyMi4xNDQ0QzU2LjU5MjYgMjIuMTg3NiA1Ni41NzIzIDIyLjI0MjUgNTYuNTcyMyAyMi4yOTkzVjI4Ljg0NzdDNTYuNTcyMyAyOC45NzkzIDU2LjQ2NTMgMjkuMDg2MSA1Ni4zMzM1IDI5LjA4NjFINTMuNDg2QzUzLjM1MzkgMjkuMDg2MSA1My4yNDcyIDI4Ljk3OTMgNTMuMjQ3MiAyOC44NDc3VjcuMTUyMzVDNTMuMjQ3MiA3LjAyMDY4IDUzLjM1MzkgNi45MTM5NCA1My40ODYgNi45MTM5NEg1Ni4zMzM1QzU2LjQ2NTMgNi45MTM5NCA1Ni41NzIzIDcuMDIwNjggNTYuNTcyMyA3LjE1MjM1VjE3LjMyNjRaTTEwNC43ODYgMjguNzY3OEMxMDQuODQyIDI4LjkyMzEgMTA0LjcyNiAyOS4wODYxIDEwNC41NjEgMjkuMDg2MUgxMDEuNTUzQzEwMS40NTEgMjkuMDg2MSAxMDEuMzYgMjkuMDIxNSAxMDEuMzI3IDI4LjkyNTJMOTkuNDE3MiAyMy4zNjkzQzk5LjM4NCAyMy4yNzMgOTkuMjkzMyAyMy4yMDgzIDk5LjE5MTMgMjMuMjA4M0g5MC45NDM5QzkwLjg0MTkgMjMuMjA4MyA5MC43NTA5IDIzLjI3MzEgOTAuNzE4IDIzLjM2OTZMODguODE3MyAyOC45MjQ3Qzg4Ljc4NDEgMjkuMDIxMyA4OC42OTM0IDI5LjA4NjEgODguNTkxMiAyOS4wODYxSDg1LjU2ODZDODUuNDAzMyAyOS4wODYxIDg1LjI4ODIgMjguOTIyOCA4NS4zNDM3IDI4Ljc2NzZMOTMuMDk0MyA3LjA3MjI3QzkzLjEyODUgNi45NzczMyA5My4yMTg1IDYuOTEzOTQgOTMuMzE5MyA2LjkxMzk0SDk2LjgyNUM5Ni45MjYgNi45MTM5NCA5Ny4wMTYgNi45NzczOCA5Ny4wNDk5IDcuMDcyMzlMMTA0Ljc4NiAyOC43Njc4Wk0xMTYuNTczIDI0LjAyOTRDMTE2LjYwMSAyNC4wOTk4IDExNi42NyAyNC4xNDU4IDExNi43NDYgMjQuMTQ1OEMxMTYuODIyIDI0LjE0NTggMTE2Ljg5IDI0LjEgMTE2LjkxOSAyNC4wMjk3TDEyMy44MzEgNy4wNjI1NEMxMjMuODY3IDYuOTcyNjggMTIzLjk1NSA2LjkxMzk0IDEyNC4wNTIgNi45MTM5NEgxMjcuNzYxQzEyNy44OTMgNi45MTM5NCAxMjggNy4wMjA2OCAxMjggNy4xNTIzNVYyOC44NDc3QzEyOCAyOC45NzkzIDEyNy44OTMgMjkuMDg2MSAxMjcuNzYxIDI5LjA4NjFIMTI0Ljk4N0MxMjQuODU2IDI5LjA4NjEgMTI0Ljc0OSAyOC45NzkzIDEyNC43NDkgMjguODQ3N1YxMy4xNjgzQzEyNC43NDkgMTMuMTAwMSAxMjQuNjkzIDEzLjA0NDkgMTI0LjYyNSAxMy4wNDQ5QzEyNC41NzQgMTMuMDQ0OSAxMjQuNTI5IDEzLjA3NTMgMTI0LjUxIDEzLjEyMThMMTE4LjA4NSAyOC45MDc2QzExOC4wNDggMjguOTk3NCAxMTcuOTYgMjkuMDU2MyAxMTcuODY0IDI5LjA1NjNIMTE1LjU1NUMxMTUuNDU4IDI5LjA1NjMgMTE1LjM3IDI4Ljk5NzIgMTE1LjMzNCAyOC45MDY2TDEwOC45ODIgMTMuMTA3NEMxMDguOTYzIDEzLjA2MDYgMTA4LjkxNyAxMy4wMyAxMDguODY3IDEzLjAzQzEwOC43OTkgMTMuMDMgMTA4Ljc0MyAxMy4wODUyIDEwOC43NDMgMTMuMTUzM1YyOC44NDc3QzEwOC43NDMgMjguOTc5MyAxMDguNjM3IDI5LjA4NjEgMTA4LjUwNCAyOS4wODYxSDEwNS44MDVDMTA1LjY3MyAyOS4wODYxIDEwNS41NjYgMjguOTc5MyAxMDUuNTY2IDI4Ljg0NzdWNy4xNTIzNUMxMDUuNTY2IDcuMDIwNjggMTA1LjY3MyA2LjkxMzk0IDEwNS44MDUgNi45MTM5NEgxMDkuNDU0QzEwOS41NTIgNi45MTM5NCAxMDkuNjM5IDYuOTcyNzggMTA5LjY3NiA3LjA2MjcxTDExNi41NzMgMjQuMDI5NFpNOTEuODM4NSAyMC4wOTUyQzkxLjc4NTQgMjAuMjQ5OSA5MS45MDA4IDIwLjQxMDcgOTIuMDY0NCAyMC40MTA3SDk4LjA2NTNDOTguMjI5NCAyMC40MTA3IDk4LjM0NDUgMjAuMjQ5NiA5OC4yOTEyIDIwLjA5NDlMOTUuMTc0OCAxMS4wMzAzQzk1LjE1NzYgMTAuOTgwMiA5NS4xMTA2IDEwLjk0NjcgOTUuMDU3NiAxMC45NDY3Qzk1LjAwNDUgMTAuOTQ2NyA5NC45NTczIDEwLjk4MDMgOTQuOTQwMyAxMS4wMzA1TDkxLjgzODUgMjAuMDk1MloiIGZpbGw9IiMxRTFGMjEiLz4KPC9nPgo8ZGVmcz4KPGNsaXBQYXRoIGlkPSJjbGlwMF8xNTQwOF8xMTg1OSI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMzYiIGZpbGw9IndoaXRlIi8+CjwvY2xpcFBhdGg+CjwvZGVmcz4KPC9zdmc+Cg==">
+    <div class="who"><b>Minted</b> · DoorDash greeting cards</div>
+    <div class="sp"></div>
+    <span class="conn" id="conn"><i></i><span>Connecting…</span></span>
+    <button class="btn" id="refresh" type="button">Recount</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="eyebrow">Graph Census</div>
+  <h1>What Minted's files became in the Ekyam graph</h1>
+  <p class="lede">Every Minted record carries the <span class="mono">:Minted</span> label and links only to other Minted records, so it sits inside the shared graph without touching anyone else's data. Counts below are live from the graph.</p>
+  <div class="kpis" id="kpis"></div>
+  <div class="card" id="isocard"><div class="loading">Checking isolation…</div></div>
+  <div class="card">
+    <div class="card-h"><h2>Map of the Minted data</h2><span class="sub">Boxes are record kinds sized by count; lines are links, thicker = more. Click a box for what it holds and where it came from.</span></div>
+    <div class="map"><div class="chart" id="graph"><div class="loading">…</div></div><div class="det" id="det"></div></div>
+    <div class="legend" id="legend"></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><div class="card-h"><h2>Record kinds</h2><span class="sub" id="kinds-sub"></span></div><div class="scroll"><table id="kinds"></table></div></div>
+    <div class="card"><div class="card-h"><h2>Links</h2><span class="sub" id="links-sub"></span></div><div class="scroll"><table id="links"></table></div></div>
+  </div>
+  <div class="card"><details class="q"><summary>The queries behind this page</summary><div id="qs"></div></details></div>
+  <p class="foot">Source files: DoorDash's SPS Commerce orders, Minted's BD tracker (Jan–Sep), CTL Global's weekly shipment and stock reports, FedEx exports, Minted's PO templates and the DoorDash Everyday inventory sheet. The graph stores what those files say; the Minted tools compute the rest (mixed-order flags, reorder quantities, billing rows).</p>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* Minted page navigation v1: a collapsible left rail linking every Minted demo page.
+ * The page names itself with <meta name="minted-page" content="<id>">.
+ * In Claude each link opens that page's artifact; on the Ekyam server (minted-endpoint set) it opens the sibling file.
+ * window.MintedNav.href(id, hash) gives the link to another page, e.g. MintedNav.href("order-journey", "POA000163948").
+ */
+(function () {
+  "use strict";
+  var PAGES = [
+    { id: "control-tower", group: "Overview", title: "Control Tower", url: "https://claude.ai/artifact/PVCsY99mGRccthZtNPjcym", icon: "M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z" },
+    { id: "order-journey", group: "Orders", title: "Order Journey", url: "https://claude.ai/artifact/XQjxbN7MjVD7LxRUFXLpDo", icon: "M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM19 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM7 17h6a3 3 0 0 0 3-3v-1a3 3 0 0 1 3-3" },
+    { id: "mixed-orders", group: "Orders", title: "Mixed-Order Alert", url: "https://claude.ai/artifact/MqjzFTANaxBME4PPmmiUZ8", icon: "M12 3 2 20h20zM12 10v4M12 17h.01" },
+    { id: "weekly-shipped", group: "Inventory", title: "Weekly Shipped", url: "https://claude.ai/artifact/PRoP2sMgqhRpjxRoHFQcje", icon: "M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4zM16 16h4v4h-4z" },
+    { id: "reorder-planner", group: "Inventory", title: "Reorder Planner", url: "https://claude.ai/artifact/R26KsG3VN93VvjcLeeFqJG", icon: "M4 7h11M4 12h7M4 17h13M19 5v14M16 16l3 3 3-3" },
+    { id: "billing-check", group: "Billing", title: "Billing Check", url: "https://claude.ai/artifact/4T2fn6mGig51Sw2FBT4zZU", icon: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3" },
+    { id: "graph-census", group: "Data", title: "Graph Census", url: "https://claude.ai/artifact/Y4uSyP4Cuax7ECJvAk9bEf", icon: "M6 6a2 2 0 1 0 0-.01M18 6a2 2 0 1 0 0-.01M12 18a2 2 0 1 0 0-.01M8 6h8M7 8l4 8M17 8l-4 8" }
+  ];
+  function hosted() { var m = document.querySelector('meta[name="minted-endpoint"]'); return !!(m && m.content && m.content.trim()); }
+  function href(id, hash) {
+    var p = PAGES.filter(function (x) { return x.id === id; })[0];
+    if (!p) return "#";
+    var base = hosted() || p.url.indexOf("__URL_") === 0 ? p.id + ".html" : p.url;
+    return base + (hash ? "#" + hash : "");
+  }
+  var KEY = "mn_nav_collapsed";
+  function getC() { try { return localStorage.getItem(KEY) === "1"; } catch (e) { return false; } }
+  function setC(v) { try { localStorage.setItem(KEY, v ? "1" : "0"); } catch (e) { /* not kept */ } }
+
+  var CSS =
+    ":root{--nav-w:228px;--nav-wc:62px}" +
+    "html.mn-nav body{padding-left:calc(var(--nav-w) + env(safe-area-inset-left,0px));transition:padding-left .18s}" +
+    "html.mn-nav.mn-c body{padding-left:calc(var(--nav-wc) + env(safe-area-inset-left,0px))}" +
+    ".mn-side{position:fixed;left:0;top:0;bottom:0;width:calc(var(--nav-w) + env(safe-area-inset-left,0px));padding:calc(10px + env(safe-area-inset-top,0px)) 10px calc(12px + env(safe-area-inset-bottom,0px)) calc(10px + env(safe-area-inset-left,0px));background:#0f1725;color:#c9d3e3;z-index:90;display:flex;flex-direction:column;gap:2px;overflow-y:auto;transition:width .18s,transform .2s;font:13px/1.4 'Inter',-apple-system,'Segoe UI',Roboto,Arial,sans-serif}" +
+    "html.mn-c .mn-side{width:calc(var(--nav-wc) + env(safe-area-inset-left,0px))}" +
+    ".mn-head{display:flex;align-items:center;gap:8px;padding:4px 4px 12px;border-bottom:1px solid #223049;margin-bottom:8px;min-height:44px}" +
+    ".mn-brand{font-weight:700;color:#fff;font-size:13.5px;white-space:nowrap;overflow:hidden}" +
+    ".mn-brand small{display:block;font-weight:500;color:#8a97ad;font-size:11px}" +
+    ".mn-tog{margin-left:auto;flex:none;width:30px;height:30px;border-radius:8px;border:1px solid #2a3a57;background:#16213a;color:#c9d3e3;cursor:pointer;display:grid;place-items:center}" +
+    ".mn-tog:hover{background:#1e2c4a;color:#fff}" +
+    ".mn-tog svg{transition:transform .18s}html.mn-c .mn-tog svg{transform:rotate(180deg)}" +
+    "html.mn-c .mn-brand,html.mn-c .mn-grp,html.mn-c .mn-lab,html.mn-c .mn-foot{display:none}" +
+    "html.mn-c .mn-head{justify-content:center;padding-inline:0}html.mn-c .mn-tog{margin:0}" +
+    ".mn-grp{font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#6f7d95;padding:10px 8px 4px}" +
+    ".mn-a{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:9px;color:#c9d3e3;text-decoration:none;white-space:nowrap;font-weight:500}" +
+    ".mn-a:hover{background:#18243d;color:#fff}" +
+    ".mn-a:focus-visible,.mn-tog:focus-visible,.mn-menu:focus-visible{outline:2px solid #6f9bff;outline-offset:2px}" +
+    ".mn-a.on{background:#2f6fed;color:#fff}" +
+    ".mn-a svg{flex:none;width:18px;height:18px}" +
+    "html.mn-c .mn-a{justify-content:center;padding:9px 0}" +
+    ".mn-foot{margin-top:auto;padding:12px 8px 0;border-top:1px solid #223049;font-size:11px;color:#8a97ad;line-height:1.5}" +
+    ".mn-menu{display:none;border:1px solid #d5dbe4;background:#fff;border-radius:9px;width:36px;height:34px;cursor:pointer;place-items:center;color:#16202e;flex:none}" +
+    ".mn-scrim{display:none}" +
+    "@media (max-width:860px){" +
+      "html.mn-nav body,html.mn-nav.mn-c body{padding-left:0}" +
+      ".mn-side{width:calc(250px + env(safe-area-inset-left,0px));transform:translateX(-105%);box-shadow:0 10px 40px rgba(0,0,0,.35)}" +
+      "html.mn-c .mn-side{width:calc(250px + env(safe-area-inset-left,0px))}" +
+      "html.mn-c .mn-brand,html.mn-c .mn-grp,html.mn-c .mn-lab,html.mn-c .mn-foot{display:block}html.mn-c .mn-a{justify-content:flex-start;padding:8px 9px}" +
+      "html.mn-open .mn-side{transform:none}" +
+      ".mn-tog{display:none}.mn-menu{display:grid}" +
+      "html.mn-open .mn-scrim{display:block;position:fixed;inset:0;background:rgba(15,23,37,.45);z-index:85}" +
+    "}" +
+    "@media (prefers-reduced-motion:reduce){.mn-side,html.mn-nav body{transition:none}}";
+
+  function svg(d) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/></svg>'; }
+
+  function mount() {
+    var meta = document.querySelector('meta[name="minted-page"]');
+    var cur = meta ? meta.content : "";
+    var st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st);
+    var root = document.documentElement; root.classList.add("mn-nav"); if (getC()) root.classList.add("mn-c");
+    var groups = [], html = "";
+    PAGES.forEach(function (p) {
+      if (groups.indexOf(p.group) < 0) { groups.push(p.group); html += '<div class="mn-grp">' + p.group + "</div>"; }
+      html += '<a class="mn-a' + (p.id === cur ? " on" : "") + '" href="' + href(p.id) + '"' + (p.id === cur ? ' aria-current="page"' : "") + ' title="' + p.title + '">' + svg(p.icon) + '<span class="mn-lab">' + p.title + "</span></a>";
+    });
+    var side = document.createElement("nav");
+    side.className = "mn-side"; side.setAttribute("aria-label", "Minted pages");
+    side.innerHTML = '<div class="mn-head"><div class="mn-brand">Minted × DoorDash<small>Ekyam demo pages</small></div>' +
+      '<button class="mn-tog" type="button" aria-label="Collapse or expand the menu" title="Collapse or expand">' + svg("M15 6l-6 6 6 6") + "</button></div>" +
+      html + '<div class="mn-foot">Every page reads the same Minted tools on Ekyam, so the numbers agree everywhere.</div>';
+    document.body.insertBefore(side, document.body.firstChild);
+    var scrim = document.createElement("div"); scrim.className = "mn-scrim"; document.body.appendChild(scrim);
+    side.querySelector(".mn-tog").onclick = function () { var c = !root.classList.contains("mn-c"); root.classList.toggle("mn-c", c); setC(c); };
+    scrim.onclick = function () { root.classList.remove("mn-open"); };
+    var bar = document.querySelector(".top .wrap");
+    if (bar) {
+      var b = document.createElement("button"); b.className = "mn-menu"; b.type = "button"; b.setAttribute("aria-label", "Open the page menu");
+      b.innerHTML = svg("M4 7h16M4 12h16M4 17h16");
+      b.onclick = function () { root.classList.toggle("mn-open"); };
+      bar.insertBefore(b, bar.firstChild);
+    }
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") root.classList.remove("mn-open"); });
+    // In Claude each page is its own artifact: open links to the others in a new tab (the viewer frame can't navigate itself).
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest && e.target.closest("a[href]");
+      if (a && /^https:\/\/claude\.ai\/artifact\//.test(a.getAttribute("href"))) { a.target = "_blank"; a.rel = "noopener"; }
+    }, true);
+  }
+
+  window.MintedNav = { href: href, pages: PAGES, mount: mount };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount); else mount();
+})();
+
+</script>
+<script>
+/* Minted data layer v1 (Oct 31 2026)
+ * One way for every Minted demo page to call the Minted tools, so the numbers are the same everywhere.
+ *
+ *  - In Claude (published artifact): calls go through the viewer's "Ekyam Dev" connector
+ *    (artifact capability `mcp`). Nothing else to set up.
+ *  - On the Ekyam server (Gemini, a plain browser): set
+ *      <meta name="minted-endpoint" content="https://<ekyam-host>/minted/api/tools">
+ *    and the page sends  POST <endpoint>/<tool_name>  with the tool's input as a JSON body,
+ *    cookies included (the Ekyam server signs the user in). The server answers with the tool's
+ *    JSON exactly as the MCP tool returns it ({"success": true, ...}).
+ *
+ * API (window.MintedData):
+ *   await MintedData.init()                  -> "claude" | "ekyam" | "none"
+ *   await MintedData.call(tool, input, {refresh})  -> the tool's JSON; throws {code, message}
+ *   MintedData.explain(error)                -> one plain sentence for the page
+ *   await MintedData.save(filename, text, mime)    -> offers a file to the viewer
+ */
+(function () {
+  "use strict";
+  var SERVER = "Ekyam Dev";
+  // Tools that keep a 24 h result cache on the server and accept refresh=true.
+  var CACHED = {
+    minted_weekly_shipped_by_card: 1, minted_reorder_plan: 1, minted_build_seasonal_po: 1,
+    minted_order_check: 1, minted_delivery_status: 1, minted_billing_report: 1, minted_cards_by_location: 1
+  };
+  var modeP = null, mcp = null, ep = "";
+
+  function endpoint() {
+    var m = document.querySelector('meta[name="minted-endpoint"]');
+    return m && m.content ? m.content.trim().replace(/\/+$/, "") : "";
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function err(code, message, extra) { var e = new Error(message); e.code = code; if (extra) { for (var k in extra) e[k] = extra[k]; } return e; }
+
+  function init() {
+    if (modeP) return modeP;
+    modeP = (async function () {
+      ep = endpoint();
+      if (window.claude && typeof window.claude.use === "function") {
+        try { mcp = await window.claude.use("mcp"); } catch (e) { mcp = null; }
+        if (mcp) return "claude";
+      }
+      if (ep) return "ekyam";
+      return "none";
+    })();
+    return modeP;
+  }
+
+  function cleanInput(tool, input, refresh) {
+    var out = {};
+    Object.keys(input || {}).forEach(function (k) {
+      var v = input[k];
+      if (v !== undefined && v !== null && v !== "") out[k] = v;
+    });
+    if (refresh && CACHED[tool]) out.refresh = true;
+    return out;
+  }
+
+  function payloadOf(res) {
+    var p = res && res.payload !== undefined ? res.payload
+      : res && res.structuredContent !== undefined ? res.structuredContent
+      : res && res.content && res.content[0] && res.content[0].text;
+    if (typeof p === "string") { try { p = JSON.parse(p); } catch (e) { /* keep text */ } }
+    return p;
+  }
+
+  function toolMessage(e) {
+    var t = e && e.result && e.result.content && e.result.content[0] && e.result.content[0].text;
+    if (!t) return (e && e.message) || "";
+    try { var j = JSON.parse(t); return j.error || j.message || t; } catch (x) { return t; }
+  }
+
+  async function call(tool, input, opts) {
+    opts = opts || {};
+    var mode = await init();
+    var args = cleanInput(tool, input, opts.refresh);
+    if (mode === "claude") {
+      var res;
+      try {
+        res = await mcp.callTool(SERVER, tool, args,
+          opts.refresh ? { cache: false } : { cache: { staleTime: 10 * 60 * 1000, gcTime: 24 * 3600 * 1000 } });
+      } catch (e) {
+        if (e && e.retryable && !opts._retried) {
+          await sleep(e.retryAfterMs || (500 + Math.random() * 900));
+          return call(tool, input, Object.assign({}, opts, { _retried: true }));
+        }
+        if (e && e.code === "tool_error") throw err("tool_error", toolMessage(e) || "The tool reported an error.");
+        throw err((e && e.code) || "upstream_error", (e && e.message) || "The call failed.");
+      }
+      var p = payloadOf(res);
+      if (!p || typeof p !== "object") throw err("bad_answer", "The tool sent back something this page can't read.");
+      if (p.success === false) throw err("tool_failed", p.error || "The tool could not answer with these inputs.");
+      return p;
+    }
+    if (mode === "ekyam") {
+      var r;
+      try {
+        r = await fetch(ep + "/" + encodeURIComponent(tool), {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(args)
+        });
+      } catch (e) {
+        throw err("network", "The Ekyam server could not be reached.");
+      }
+      if (r.status === 401 || r.status === 403) throw err("signed_out", "Not signed in to Ekyam.");
+      if (!r.ok) {
+        if (r.status >= 500 && !opts._retried) { await sleep(800); return call(tool, input, Object.assign({}, opts, { _retried: true })); }
+        throw err("server_error", "The Ekyam server answered " + r.status + ".");
+      }
+      var j = await r.json();
+      if (j && j.success === false) throw err("tool_failed", j.error || "The tool could not answer with these inputs.");
+      return j;
+    }
+    throw err("no_connection", "No data connection.");
+  }
+
+  function explain(e) {
+    var c = e && e.code;
+    switch (c) {
+      case "server_not_connected": return "Add the Ekyam Dev connector in claude.ai Settings → Connectors, then reload this page.";
+      case "needs_reauth": return "Reconnect Ekyam Dev in claude.ai Settings → Connectors, then reload.";
+      case "not_in_manifest": return "This page isn't allowed to use Ekyam Dev for you. Turn it on in this page's Permissions menu, then reload.";
+      case "approval_required": return "This page needs your OK to use Ekyam Dev. Press Refresh and allow it when Claude asks.";
+      case "selection_required": return "You have more than one connector named Ekyam Dev. Pick one when Claude asks, then reload.";
+      case "blocked_by_policy": return "Your organization's settings block this Ekyam Dev tool for your account.";
+      case "server_unavailable": case "upstream_error": return "Ekyam Dev didn't answer just now. Press Refresh in a minute.";
+      case "tool_error": return "Ekyam Dev returned an error: " + (e.message || "no details") + ".";
+      case "tool_failed": return e.message || "The tool could not answer with these inputs.";
+      case "not_granted": case "capability_disabled": case "capability_removed":
+        return "This view can't reach connectors. Open the page on claude.ai to load live data.";
+      case "signed_out": return "Sign in to Ekyam, then reload this page.";
+      case "network": case "server_error": return "The Ekyam server didn't answer. Try again in a minute.";
+      case "no_connection": return "Open this page on claude.ai with the Ekyam Dev connector, or from the Ekyam server, to load live data.";
+      default: return (e && e.message) || "The data could not be loaded.";
+    }
+  }
+
+  async function save(filename, text, mime) {
+    var mode = await init();
+    if (mode === "claude") {
+      var dl = null;
+      try { dl = await window.claude.use("downloads"); } catch (e) { dl = null; }
+      if (!dl) throw err("no_downloads", "Downloads aren't available in this view.");
+      await dl.save({ filename: filename, data: new Blob([text], { type: mime || "text/csv" }) });
+      return true;
+    }
+    var url = URL.createObjectURL(new Blob([text], { type: mime || "text/csv" }));
+    var a = document.createElement("a"); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    return true;
+  }
+
+  window.MintedData = { init: init, call: call, explain: explain, save: save, SERVER: SERVER };
+})();
+
+</script>
+<script>
+/* Minted page helpers v1: formatting, toast, copy, chart tooltips. window.MU */
+(function () {
+  "use strict";
+  var MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var MONL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var U = {};
+  U.$ = function (id) { return document.getElementById(id); };
+  U.esc = function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
+  U.dshort = function (s) { if (!s) return ""; var p = String(s).slice(0, 10).split("-"); return MON[+p[1] - 1] + " " + (+p[2]); };
+  U.dlong = function (s) { if (!s) return ""; var p = String(s).slice(0, 10).split("-"); return MON[+p[1] - 1] + " " + (+p[2]) + ", " + p[0]; };
+  U.month = function (m) { var p = String(m).split("-"); return MONL[+p[1] - 1] + " " + p[0]; };
+  U.tm = function (s) { if (!s || String(s).length < 16) return ""; var h = +String(s).slice(11, 13), m = String(s).slice(14, 16); return (h % 12 || 12) + ":" + m + (h < 12 ? " am" : " pm"); };
+  U.days = function (a, b) { if (!a || !b) return null; return Math.round((Date.parse(String(b).slice(0, 10) + "T00:00:00Z") - Date.parse(String(a).slice(0, 10) + "T00:00:00Z")) / 86400000); };
+  U.addDays = function (s, n) { var d = new Date(String(s).slice(0, 10) + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + Math.round(n)); return d.toISOString().slice(0, 10); };
+  U.n0 = function (x) { return Number(x || 0).toLocaleString("en-US"); };
+  U.n1 = function (x) { return Number(x || 0).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }); };
+  U.usd = function (x) { return x == null ? "—" : "$" + Number(x).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  U.pill = function (c, t) { return '<span class="pill ' + c + '">' + U.esc(t) + "</span>"; };
+  var tt;
+  U.toast = function (t) { var e = U.$("toast"); if (!e) return; e.textContent = t; e.hidden = false; clearTimeout(tt); tt = setTimeout(function () { e.hidden = true; }, 3200); };
+  U.copy = function (t, label) {
+    var ok = function () { U.toast(label || "Copied"); };
+    var fb = function () { var a = document.createElement("textarea"); a.value = t; a.setAttribute("readonly", ""); a.style.position = "fixed"; a.style.opacity = "0"; document.body.appendChild(a); a.select(); var r = false; try { r = document.execCommand("copy"); } catch (e) { /* no copy */ } a.remove(); U.toast(r ? (label || "Copied") : "Select the text and copy it by hand"); };
+    try { navigator.clipboard.writeText(t).then(ok, fb); } catch (e) { fb(); }
+  };
+  U.csvCell = function (v) { v = v == null ? "" : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  U.setConn = function (ok, text) { var c = U.$("conn"); if (!c) return; c.className = "conn " + (ok ? "ok" : "bad"); c.lastChild.textContent = text; };
+  U.saveFail = function (e) { if (!e || e.code !== "cancelled") U.toast(e && e.code === "no_downloads" ? "Downloads aren't available here; use Copy" : "The file was not saved"); };
+  /* Tooltips for anything with data-tip="Title|line|line" inside a .chart (or .tipzone) container. */
+  function show(e) {
+    var zone = e.target.closest && e.target.closest(".chart,.tipzone"); if (!zone) return;
+    var t = zone.querySelector(":scope > .ctip"); if (!t) { t = document.createElement("div"); t.className = "ctip"; t.hidden = true; zone.appendChild(t); }
+    var el = e.target.closest("[data-tip]"); if (!el) { t.hidden = true; return; }
+    var parts = el.getAttribute("data-tip").split("|");
+    t.innerHTML = "<b>" + U.esc(parts[0]) + "</b>" + parts.slice(1).map(U.esc).join("<br>");
+    t.hidden = false;
+    var r = zone.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, w = t.offsetWidth, h = t.offsetHeight;
+    t.style.left = Math.max(4, Math.min(r.width - w - 4, x - w / 2)) + "px";
+    t.style.top = (y - h - 14 < 4 ? y + 18 : y - h - 14) + "px";
+  }
+  document.addEventListener("mousemove", show);
+  document.addEventListener("click", show);
+  document.addEventListener("mouseleave", function () { Array.prototype.forEach.call(document.querySelectorAll(".ctip"), function (t) { t.hidden = true; }); }, true);
+  U.niceStep = function (max, n) { var raw = max / (n || 4), p = Math.pow(10, Math.floor(Math.log10(raw || 1))), m = raw / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; };
+  window.MU = U;
+})();
+
+</script>
+<script>
+(function(){
+"use strict";
+var D=window.MintedData, U=window.MU, $=U.$, esc=U.esc;
+var Q={
+  totals:{ask:"How many Minted records and links are in the graph",cy:"MATCH (n:Minted) WITH count(n) AS nodes MATCH (:Minted)-[r]->(:Minted) RETURN nodes, count(r) AS rels LIMIT 1"},
+  kinds:{ask:"How many Minted records of each kind are in the graph",cy:"MATCH (n:Minted) UNWIND labels(n) AS l WITH l WHERE l <> 'Minted' RETURN l AS label, count(*) AS nodes ORDER BY nodes DESC LIMIT 50"},
+  links:{ask:"How many links connect Minted records, counted by link and record kind",cy:"MATCH (a:Minted)-[r]->(b:Minted) WITH type(r) AS rel, [x IN labels(a) WHERE x <> 'Minted'][0] AS from_label, [x IN labels(b) WHERE x <> 'Minted'][0] AS to_label RETURN rel, from_label, to_label, count(*) AS links ORDER BY links DESC LIMIT 100"},
+  iso:{ask:"Count relationships between Minted nodes and nodes outside the Minted slice (isolation check)",cy:"MATCH (a:Minted)-[r]-(b) WHERE NOT b:Minted RETURN count(r) AS links, count(DISTINCT a) AS minted_nodes_touching LIMIT 1"}
+};
+/* What each record kind holds and which file it came from (from the conversion plan). */
+var G={orders:{c:"#2f6fed",t:"Orders"},fulfil:{c:"#127a57",t:"Shipping & billing"},cat:{c:"#6a4bc4",t:"Cards & stock"},party:{c:"#5d6878",t:"Companies & places"}};
+var K={
+  orders:{name:"DoorDash orders",g:"orders",x:430,y:285,what:"One per DoorDash PO, with program, ship-to MFC, requested delivery date and status.",src:"BD tracker (Jan–Sep), CTL reports (Jul–Oct), SPS Commerce (Sep and samples), Holiday 2025 distribution tab"},
+  OrderShipment:{name:"Packages",g:"fulfil",x:640,y:70,what:"One per FedEx package: CTL ship date, cards in the box, FedEx status and delivered date.",src:"CTL weekly shipment reports, FedEx exports, BD tracker"},
+  Invoice:{name:"Billing lines",g:"fulfil",x:220,y:70,what:"Accounting's billing line per tracker row, as entered: PO $, shipping charge, billing month.",src:"BD tracker"},
+  OrderLifecycleEvent:{name:"Order events",g:"orders",x:430,y:150,what:"Cancellations, DoorDash's “cancel or ship?” emails and Minted's replies.",src:"BD tracker, DoorDash emails"},
+  CustomerAddress:{name:"DoorDash MFCs",g:"party",x:120,y:330,what:"DoorDash's delivery points (e.g. ATL-2) with their addresses.",src:"SPS Commerce, CTL reports, seasonal distribution tab"},
+  customers:{name:"DoorDash",g:"party",x:120,y:170,what:"DoorDash, Inc.: Net 45, vendor # 8862470.",src:"SPS Commerce"},
+  Item:{name:"Card packs",g:"cat",x:770,y:285,what:"The single pack DoorDash orders. Everyday packs use the UPC + DD; seasonal use the UPC.",src:"CTL stock report, SPS Commerce, seasonal PO"},
+  products:{name:"Card designs",g:"cat",x:700,y:465,what:"One per Minted style (e.g. MIN-NYB-NCG) with print type, foil, envelope and inside copy.",src:"CTL stock report, PO templates, SPS Commerce"},
+  Category:{name:"Occasions",g:"cat",x:600,y:580,what:"Birthday, Thank You, Blanks, Congrats and the other occasions.",src:"PO template, CTL stock report"},
+  ProductExternalIdentifier:{name:"Extra UPC",g:"cat",x:830,y:580,what:"DoorDash's second UPC for one card (843740149222 → Where The Year Leads).",src:"SPS Commerce (September)"},
+  DemandWeek:{name:"Weekly shipped",g:"cat",x:930,y:150,what:"Cards shipped per card per week. New label for Minted.",src:"CTL weekly reports; the Aug 24 week and earlier from the inventory sheet"},
+  InventorySnapshot:{name:"CTL stock",g:"cat",x:945,y:300,what:"CTL's stock per card on 10/19 and 10/23.",src:"CTL stock report; inventory sheet “CTL 1019” tab"},
+  Partner:{name:"Suppliers",g:"party",x:960,y:470,what:"Marathon Press (printer, 28–42 day lead time) and CTL Global (3PL).",src:"Minted's brief, PO template"},
+  PurchaseOrder:{name:"Marathon POs",g:"fulfil",x:400,y:590,what:"DDED081026 (Everyday to CTL) and DDHOL102325 (Holiday 2025 drop-ship).",src:"PO templates"},
+  locations:{name:"Warehouses",g:"party",x:300,y:470,what:"CTL Global (Elk Grove Village, IL) and Marathon Press (Norfolk, NE).",src:"PO templates"},
+  BusinessEntity:{name:"DoorDash program",g:"party",x:120,y:500,what:"Minted Wholesale: the DoorDash program.",src:"Set up for the load"},
+  Business:{name:"Minted",g:"party",x:120,y:595,what:"Minted, LLC (747 Front St, San Francisco).",src:"PO template header"}
+};
+function isNew(x){ return (x.rel==="SHIPS_TO"&&x.to_label==="CustomerAddress")||x.rel==="HAS_INVOICE"||x.rel==="HAS_WEEKLY_DEMAND"; }
+var S={kinds:[],links:[],tot:null,iso:null,sel:"orders",shared:null};
+
+function q(k){ return D.call("cypher_chain",{user_input:Q[k].ask,cypher:Q[k].cy}); }
+function rows(p){ return (p&&p.results)||[]; }
+
+function load(){
+  ["kpis","isocard"].forEach(function(id){ $(id).style.opacity=".5"; });
+  return Promise.all([q("totals"),q("kinds"),q("links"),q("iso")]).then(function(r){
+    S.tot=rows(r[0])[0]||{}; S.kinds=rows(r[1]); S.links=rows(r[2]); S.iso=rows(r[3])[0]||{};
+    S.shared=(r[0].provenance&&r[0].provenance.node_total)||null;
+    U.setConn(true,"Live from Ekyam"); render();
+  },function(e){
+    U.setConn(false,"Not loaded");
+    $("kpis").innerHTML=""; $("isocard").innerHTML='<div class="card-b"><div class="msg err">'+esc(D.explain(e))+'</div></div>';
+    $("graph").innerHTML=""; $("det").innerHTML="";
+  }).then(function(){ ["kpis","isocard"].forEach(function(id){ $(id).style.opacity="1"; }); });
+}
+
+function render(){
+  var links0=+S.iso.links===0;
+  $("kpis").innerHTML=
+    kpi("Minted records",U.n0(S.tot.nodes),S.shared?"of "+(S.shared/1e6).toFixed(1)+" million in the shared graph":"")+
+    kpi("Links between them",U.n0(S.tot.rels),S.links.length+" link patterns")+
+    kpi("Record kinds",S.kinds.length,"existing Ekyam labels, plus DemandWeek")+
+    kpi("Links to other data",U.n0(S.iso.links),links0?"Minted touches nothing outside its slice":"should be 0",links0?"good":"bad");
+  $("isocard").innerHTML='<div class="iso'+(links0?"":" bad")+'"><div class="big">'+(links0?"✓":"!")+'</div><p>'+(links0
+    ? '<b>Isolated.</b> 0 links run between Minted records and anything else in the shared graph, so SI partners testing on this environment see the same results as before the load. Removing Minted is one statement: <span class="mono">MATCH (n:Minted) DETACH DELETE n</span>.'
+    : '<b>'+U.n0(S.iso.links)+' links connect '+U.n0(S.iso.minted_nodes_touching)+' Minted records to data outside the slice.</b> The load should create none; check the most recent load step.')+'</p></div>';
+  drawGraph(); kinds(); linksTbl(); detail();
+  $("qs").innerHTML=Object.keys(Q).map(function(k){ return '<div class="sm mut" style="margin-top:8px">'+esc(Q[k].ask)+'</div><pre>'+esc(Q[k].cy)+'</pre>'; }).join("");
+}
+function kpi(k,v,d,c){ return '<div class="kpi '+(c||"")+'"><div class="k">'+esc(k)+'</div><div class="v">'+esc(v)+'</div><div class="d">'+esc(d)+'</div></div>'; }
+function cnt(l){ var r=S.kinds.filter(function(x){ return x.label===l; })[0]; return r?r.nodes:0; }
+
+function drawGraph(){
+  var W=1060,H=640,max=Math.log10(Math.max.apply(null,S.links.map(function(l){ return l.links; }).concat([10])));
+  var e='',n='';
+  S.links.forEach(function(l,i){
+    var a=K[l.from_label], b=K[l.to_label]; if(!a||!b) return;
+    var w=1+3.5*Math.log10(l.links+1)/max, mx=(a.x+b.x)/2, my=(a.y+b.y)/2, dx=b.x-a.x, dy=b.y-a.y, len=Math.sqrt(dx*dx+dy*dy)||1, bend=18;
+    var cx=mx-dy/len*bend, cy=my+dx/len*bend;
+    var tip=l.rel+"|"+(K[l.from_label].name)+" → "+(K[l.to_label].name)+"|"+U.n0(l.links)+" links"+(isNew(l)?" · new link type":"");
+    e+='<path class="ed" data-a="'+l.from_label+'" data-b="'+l.to_label+'" d="M'+a.x+' '+a.y+' Q'+cx+' '+cy+' '+b.x+' '+b.y+'" fill="none" stroke="#9fb0c8" stroke-width="'+w.toFixed(1)+'" data-tip="'+esc(tip)+'"/>';
+  });
+  Object.keys(K).forEach(function(lab){
+    var k=K[lab], c=cnt(lab), col=G[k.g].c, wd=Math.max(110,k.name.length*8.4+30,(U.n0(c)+"  "+lab).length*7.3+26);
+    n+='<g class="nd" tabindex="0" role="button" aria-label="'+esc(k.name+": "+U.n0(c))+'" data-l="'+lab+'" transform="translate('+(k.x-wd/2)+','+(k.y-24)+')">'+
+      '<rect width="'+wd+'" height="48" rx="10" fill="#fff" stroke="'+col+'" stroke-width="1.5"/>'+
+      '<rect width="5" height="48" rx="2" fill="'+col+'"/>'+
+      '<text x="14" y="20" font-size="14.5" font-weight="600" fill="#16202e">'+esc(k.name)+'</text>'+
+      '<text x="14" y="38" font-size="12.5" fill="#5d6878"><tspan font-weight="700" fill="'+col+'">'+U.n0(c)+'</tspan>  '+esc(lab)+'</text></g>';
+  });
+  $("graph").innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Map of Minted record kinds and the links between them">'+e+n+'</svg>';
+  $("legend").innerHTML=Object.keys(G).map(function(g){ return '<span><i style="background:'+G[g].c+'"></i>'+G[g].t+'</span>'; }).join("")+'<span>Hover a line for the link count</span>';
+  Array.prototype.forEach.call($("graph").querySelectorAll(".nd"),function(el){
+    el.onclick=function(){ pick(el.getAttribute("data-l")); };
+    el.onkeydown=function(ev){ if(ev.key==="Enter"||ev.key===" "){ ev.preventDefault(); pick(el.getAttribute("data-l")); } };
+  });
+  hilite();
+}
+function pick(l){ S.sel=l; hilite(); detail(); Array.prototype.forEach.call(document.querySelectorAll("tr.pick"),function(tr){ tr.classList.toggle("on",tr.getAttribute("data-l")===l); }); }
+function hilite(){
+  var svg=$("graph").querySelector("svg"); if(!svg) return;
+  var on={}; on[S.sel]=1;
+  Array.prototype.forEach.call(svg.querySelectorAll(".ed"),function(p){ var hot=p.getAttribute("data-a")===S.sel||p.getAttribute("data-b")===S.sel; p.classList.toggle("hot",hot); if(hot){ on[p.getAttribute("data-a")]=1; on[p.getAttribute("data-b")]=1; } });
+  Array.prototype.forEach.call(svg.querySelectorAll(".nd"),function(g){ var l=g.getAttribute("data-l"); g.classList.toggle("hot",!!on[l]); g.classList.toggle("on",l===S.sel); });
+  svg.classList.toggle("dim",!!S.sel);
+}
+function detail(){
+  var l=S.sel, k=K[l]; if(!k){ $("det").innerHTML=""; return; }
+  var out=S.links.filter(function(x){ return x.from_label===l; }), inn=S.links.filter(function(x){ return x.to_label===l; });
+  var li=function(arr,dir){ return arr.map(function(x){ var o=dir==="out"?x.to_label:x.from_label; return '<li><span>'+(dir==="out"?"→ ":"← ")+'<a href="#" class="lnk" data-go="'+o+'">'+esc(K[o]?K[o].name:o)+'</a></span><span class="c">'+U.n0(x.links)+'</span><span class="r">'+esc(x.rel)+'</span></li>'; }).join(""); };
+  $("det").innerHTML='<h3>'+esc(k.name)+'</h3><div class="lab">:'+esc(l)+':Minted</div><div class="n">'+U.n0(cnt(l))+'</div>'+
+    '<dl><dt>Holds</dt><dd>'+esc(k.what)+'</dd><dt>From</dt><dd>'+esc(k.src)+'</dd></dl>'+
+    ((out.length||inn.length)?'<ul>'+li(out,"out")+li(inn,"in")+'</ul>':'');
+  Array.prototype.forEach.call($("det").querySelectorAll("[data-go]"),function(a){ a.onclick=function(ev){ ev.preventDefault(); pick(a.getAttribute("data-go")); }; });
+}
+function kinds(){
+  var tot=S.kinds.reduce(function(s,x){ return s+x.nodes; },0);
+  $("kinds-sub").textContent=U.n0(tot)+" records";
+  $("kinds").innerHTML='<thead><tr><th>Kind</th><th class="num">Records</th><th>From</th></tr></thead><tbody>'+S.kinds.map(function(x){
+    var k=K[x.label]||{name:x.label,g:"party",src:""};
+    return '<tr class="pick'+(x.label===S.sel?" on":"")+'" data-l="'+esc(x.label)+'" tabindex="0"><td><span class="gdot" style="background:'+G[k.g].c+'"></span>'+esc(k.name)+'<div class="mono sm mut" style="padding-left:16px">'+esc(x.label)+'</div></td><td class="num">'+U.n0(x.nodes)+'</td><td class="wrapc sm">'+esc(k.src)+'</td></tr>';
+  }).join("")+'</tbody>';
+  Array.prototype.forEach.call($("kinds").querySelectorAll("tr.pick"),function(tr){ tr.onclick=function(){ pick(tr.getAttribute("data-l")); $("graph").scrollIntoView({behavior:"smooth",block:"center"}); }; tr.onkeydown=function(ev){ if(ev.key==="Enter") tr.onclick(); }; });
+}
+function linksTbl(){
+  var tot=S.links.reduce(function(s,x){ return s+x.links; },0);
+  $("links-sub").textContent=U.n0(tot)+" links";
+  $("links").innerHTML='<thead><tr><th>Link</th><th>From → to</th><th class="num">Links</th></tr></thead><tbody>'+S.links.map(function(x){
+    return '<tr><td class="mono">'+esc(x.rel)+(isNew(x)?' '+U.pill("p-blu","new"):'')+'</td><td>'+esc(K[x.from_label]?K[x.from_label].name:x.from_label)+' → '+esc(K[x.to_label]?K[x.to_label].name:x.to_label)+'</td><td class="num">'+U.n0(x.links)+'</td></tr>';
+  }).join("")+'</tbody>';
+}
+
+$("refresh").onclick=function(){ load().then(function(){ U.toast("Counted again from the graph"); }); };
+D.init().then(function(mode){
+  if(mode==="none"){ U.setConn(false,"Not connected"); $("isocard").innerHTML='<div class="card-b"><div class="msg err">'+esc(D.explain({code:"no_connection"}))+'</div></div>'; $("graph").innerHTML=""; return; }
+  load();
+});
+})();
+</script>
